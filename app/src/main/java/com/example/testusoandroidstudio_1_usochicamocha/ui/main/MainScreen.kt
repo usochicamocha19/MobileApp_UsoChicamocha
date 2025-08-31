@@ -35,7 +35,9 @@ fun MainScreen(
     viewModel: MainViewModel = hiltViewModel(),
     onLogout: () -> Unit,
     onNavigateToForm: () -> Unit,
-    onNavigateToLogs: () -> Unit
+    onNavigateToLogs: () -> Unit,
+    onNavigateToImprevisto: () -> Unit,
+    onNavigateToMantenimiento: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -47,7 +49,6 @@ fun MainScreen(
         }
     }
 
-    // --- EFECTOS PARA MOSTRAR MENSAJES (TOASTS) ---
     LaunchedEffect(uiState.syncMachinesMessage) {
         uiState.syncMachinesMessage?.let {
             Toast.makeText(context, it, Toast.LENGTH_LONG).show()
@@ -87,7 +88,10 @@ fun MainScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            AvailableFormsCard(onNavigateToForm = onNavigateToForm)
+            AvailableFormsCard(onNavigateToForm = onNavigateToForm,
+                onNavigateToImprevisto = onNavigateToImprevisto,
+                onNavigateToMantenimiento = onNavigateToMantenimiento)
+
             PendingFormsCard(
                 pendingForms = uiState.pendingForms,
                 isSyncingMachines = uiState.isSyncingMachines,
@@ -106,7 +110,10 @@ fun MainScreen(
 }
 
 @Composable
-fun AvailableFormsCard(onNavigateToForm: () -> Unit) {
+fun AvailableFormsCard(
+    onNavigateToForm: () -> Unit,
+    onNavigateToImprevisto: () -> Unit,
+    onNavigateToMantenimiento: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp)
@@ -120,6 +127,20 @@ fun AvailableFormsCard(onNavigateToForm: () -> Unit) {
             ) {
                 Text("Inspección maquinas", fontSize = 18.sp)
             }
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = onNavigateToImprevisto,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Imprevisto maquinas", fontSize = 18.sp)
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = onNavigateToMantenimiento,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Mantenimiento", fontSize = 18.sp)
+            }
         }
     }
 }
@@ -128,9 +149,9 @@ fun AvailableFormsCard(onNavigateToForm: () -> Unit) {
 fun PendingFormsCard(
     pendingForms: List<Form>,
     isSyncingMachines: Boolean,
-    isSyncingForms: Boolean, // <-- Nuevo estado
+    isSyncingForms: Boolean,
     onSyncMachinesClicked: () -> Unit,
-    onSyncFormsClicked: () -> Unit // <-- Nueva acción
+    onSyncFormsClicked: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -232,7 +253,9 @@ fun MainScreenPreview() {
             networkStatus = true,
             onLogout = {},
             onNavigateToForm = {},
-            onNavigateToLogs = {}
+            onNavigateToLogs = {},
+            onNavigateToImprevisto = {},
+            onNavigateToMantenimiento = {}
         )
     }
 }

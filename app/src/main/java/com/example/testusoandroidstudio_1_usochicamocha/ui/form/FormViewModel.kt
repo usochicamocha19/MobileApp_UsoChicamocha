@@ -7,17 +7,15 @@ import androidx.lifecycle.viewModelScope
 import com.example.testusoandroidstudio_1_usochicamocha.data.local.TokenManager
 import com.example.testusoandroidstudio_1_usochicamocha.domain.model.Form
 import com.example.testusoandroidstudio_1_usochicamocha.domain.model.Machine
-import com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.form.SaveFormUseCase
 import com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.machine.GetLocalMachinesUseCase
+import com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.form.SaveFormUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
 import java.util.Calendar
-import java.util.Locale
 import java.util.UUID
 import javax.inject.Inject
 
@@ -42,7 +40,11 @@ data class FormUiState(
     val selectedImageUris: List<Uri> = emptyList(),
     val machines: List<Machine> = emptyList(),
     val selectedMachine: Machine? = null,
-    val saveCompleted: Boolean = false
+    val saveCompleted: Boolean = false,
+    // Nuevos campos para engrasado
+    val greasingStatus: String = "", // "Sí", "No", o "" (inicial)
+    val greasingAction: String = "", // "Total", "Parcial", o ""
+    val greasingObservations: String = ""
 )
 
 @HiltViewModel
@@ -61,6 +63,13 @@ class FormViewModel @Inject constructor(
                 _uiState.update { it.copy(machines = machines) }
             }
         }
+        // Inicializar vigenciaExtintor con el mes y año actual si está vacío
+        if (_uiState.value.vigenciaExtintor.isEmpty()) {
+            val calendar = Calendar.getInstance()
+            val year = calendar.get(Calendar.YEAR)
+            val month = calendar.get(Calendar.MONTH)
+            onExtinguisherDateChange(year, month) // Llama al método existente para formatear
+        }
     }
 
     fun onMachineSelected(machine: Machine) {
@@ -75,6 +84,32 @@ class FormViewModel @Inject constructor(
         _uiState.update { it.copy(observaciones = value) }
     }
 
+    // --- Inicio: Nuevas funciones para Engrasado ---
+    fun onGreasedStatusChange(status: String) {
+        _uiState.update {
+            if (status == "No") {
+                // Si es "No", resetea la acción de engrasado y las observaciones de engrasado
+                it.copy(greasingStatus = status, greasingAction = "", greasingObservations = "")
+            } else {
+                it.copy(greasingStatus = status)
+            }
+        }
+    }
+
+    fun onGreasingActionChange(action: String) {
+        // Solo permite cambiar la acción si el estado de engrasado es "Sí"
+        if (_uiState.value.greasingStatus == "Sí") {
+            _uiState.update { it.copy(greasingAction = action) }
+        }
+    }
+
+    fun onGreasingObservationsChange(observations: String) {
+        // Solo permite cambiar las observaciones si el estado de engrasado es "Sí"
+        if (_uiState.value.greasingStatus == "Sí") {
+            _uiState.update { it.copy(greasingObservations = observations) }
+        }
+    }
+    // --- Fin: Nuevas funciones para Engrasado ---
 
     fun onExtinguisherDateChange(year: Int, month: Int) {
         val formattedMonth = String.format("%02d", month + 1)
@@ -101,9 +136,6 @@ class FormViewModel @Inject constructor(
         _uiState.update { it.copy(previewingImageUri = null) }
     }
 
-
-
-
     fun onEstadoChange(fieldName: String, value: String) {
         _uiState.update { currentState ->
             when (fieldName) {
@@ -127,19 +159,13 @@ class FormViewModel @Inject constructor(
     fun onSaveClick() {
         if (_uiState.value.selectedMachine == null) {
             Log.d("FormViewModel", "Intento de guardado sin seleccionar máquina.")
-            // TODO: Idealmente, aquí deberías actualizar el UiState con un mensaje de error
-            // para mostrarlo en un SnackBar o similar, en lugar de un Log.
-            return // Salimos de la función
+            return
         }
-        // Validación: Asegurarse de que se ha seleccionado una máquina.
-        // Asumimos que selectedMachine.id es Int y lo convertimos a Long para machineId
         val selectedMachineId = _uiState.value.selectedMachine?.id?.toLong() ?: return
 
         viewModelScope.launch {
             Log.d("FormViewModel", "Iniciando guardado de formulario...")
             val currentState = _uiState.value
-            // Asumimos que tokenManager.getUserId() devuelve Flow<Int?> o similar,
-            // y lo convertimos a Long para userId.
             val currentUserId = tokenManager.getUserId().firstOrNull()?.toLong()
 
             if (currentUserId == null) {
@@ -147,8 +173,15 @@ class FormViewModel @Inject constructor(
                 return@launch
             }
 
+            // Determinar el valor final para greasingAction
+            val finalGreasingAction = when (currentState.greasingStatus) {
+                "Sí" -> currentState.greasingAction // "Total" o "Parcial"
+                "No" -> "No"
+                else -> "" // Si no se seleccionó ni Sí ni No, podría ser un string vacío o manejarlo como error
+            }
+
             val form = Form(
-                localId = 0, // Generalmente autogenerado por la BD, o 0 para una nueva entidad no guardada.
+                localId = 0,
                 UUID = UUID.randomUUID().toString(),
                 timestamp = System.currentTimeMillis(),
                 machineId = selectedMachineId,
@@ -168,14 +201,16 @@ class FormViewModel @Inject constructor(
                 coolantStatus = currentState.estadoRefrigerante,
                 structuralStatus = currentState.estadoEstructural,
                 expirationDateFireExtinguisher = currentState.vigenciaExtintor,
+                greasingAction = finalGreasingAction,
+                greasingObservations = if (currentState.greasingStatus == "Sí") currentState.greasingObservations else "",
+                isUnexpected = false, // <-- AÑADIDO: Se envía 'false' para el formulario normal
                 isSynced = false
             )
             saveFormUseCase(form)
-            Log.d("FormViewModel", "Formulario guardado localmente. Actualizando UI.")
+            Log.d("FormViewModel", "Formulario guardado localmente: $form")
             _uiState.update { it.copy(saveCompleted = true) }
         }
     }
-
 
     fun onNavigationDone() {
         _uiState.update { it.copy(saveCompleted = false) }

@@ -15,11 +15,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.testusoandroidstudio_1_usochicamocha.ui.imprevisto.ImprevistoScreen
 import com.example.testusoandroidstudio_1_usochicamocha.ui.form.FormScreen
 import com.example.testusoandroidstudio_1_usochicamocha.ui.log.LogScreen
 import com.example.testusoandroidstudio_1_usochicamocha.ui.login.LoginScreen
 import com.example.testusoandroidstudio_1_usochicamocha.ui.login.LoginViewModel
 import com.example.testusoandroidstudio_1_usochicamocha.ui.main.MainScreen
+import com.example.testusoandroidstudio_1_usochicamocha.ui.mantenimiento.MantenimientoScreen
 import com.example.testusoandroidstudio_1_usochicamocha.ui.shared.ConnectionStatusTopBar
 import com.example.testusoandroidstudio_1_usochicamocha.ui.splash.SplashScreen
 import com.example.testusoandroidstudio_1_usochicamocha.ui.splash.SplashViewModel
@@ -78,6 +80,12 @@ class MainActivity : ComponentActivity() {
                             },
                             onNavigateToForm = {
                                 navController.navigate("form")
+                            },
+                                    onNavigateToImprevisto = {
+                                navController.navigate("imprevisto")
+                            },
+                            onNavigateToMantenimiento = {
+                                navController.navigate("mantenimiento")
                             }
                         )
                     }
@@ -95,6 +103,13 @@ class MainActivity : ComponentActivity() {
                             }
                         )
                     }
+                    composable("imprevisto") {
+                        ImprevistoScreen()
+                    }
+                    composable("mantenimiento") {
+                        MantenimientoScreen()
+                    }
+
                 }
             }
         }

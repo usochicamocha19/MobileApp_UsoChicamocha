@@ -66,7 +66,7 @@ class FormRepositoryImpl @Inject constructor(
         return FormDto(
             UUID = this.UUID,
             dateStamp = isoDateString,
-            hourmeter = this.hourmeter,
+            hourMeter = this.hourmeter, // CAMBIADO hourmeter a hourMeter en el DTO
             leakStatus = this.leakStatus,
             brakeStatus = this.brakeStatus,
             beltsPulleysStatus = this.beltsPulleysStatus,
@@ -82,7 +82,10 @@ class FormRepositoryImpl @Inject constructor(
             expirationDateFireExtinguisher = this.expirationDateFireExtinguisher,
             observations = this.observations,
             userId = this.userId,
-            machineId = this.machineId
+            machineId = this.machineId,
+            greasingAction = this.greasingAction, 
+            greasingObservations = this.greasingObservations, 
+            isUnexpected = this.isUnexpected
         )
     }
 }

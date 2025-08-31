@@ -196,6 +196,22 @@ fun FormScreen(
                     minLines = 4
                 )
             }
+            item { Divider(modifier = Modifier.padding(vertical = 8.dp)) } // Separador
+
+            // Nueva sección de engrasado
+            item {
+                GreasingSection(
+                    greasedStatus = uiState.greasingStatus, // Necesitarás añadir esto a tu UiState
+                    onGreasedStatusChange = { viewModel.onGreasedStatusChange(it) }, // Y esto a tu ViewModel
+                    greasingAction = uiState.greasingAction, // Necesitarás añadir esto a tu UiState
+                    onGreasingActionChange = { viewModel.onGreasingActionChange(it) }, // Y esto a tu ViewModel
+                    greasingObservations = uiState.greasingObservations, // Necesitarás añadir esto a tu UiState
+                    onGreasingObservationsChange = { viewModel.onGreasingObservationsChange(it) } // Y esto a tu ViewModel
+                )
+            }
+             item { Divider(modifier = Modifier.padding(vertical = 8.dp)) } // Separador
+
+
             item {
                 ImageUploadSection(
                     selectedImageUris = uiState.selectedImageUris,
@@ -226,6 +242,88 @@ fun FormScreen(
         )
     }
 }
+
+@Composable
+fun GreasingSection(
+    greasedStatus: String, // "Sí", "No", "" (inicial)
+    onGreasedStatusChange: (String) -> Unit,
+    greasingAction: String, // "Total", "Parcial", "" (si greasedStatus es "No" o inicial)
+    onGreasingActionChange: (String) -> Unit,
+    greasingObservations: String,
+    onGreasingObservationsChange: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Engrasado", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 17.sp))
+        Text("¿Se engrasó la máquina?", fontSize = 16.sp)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            listOf("Sí", "No").forEach { option ->
+                val isSelected = option == greasedStatus
+                OutlinedButton(
+                    onClick = { onGreasedStatusChange(option) },
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+                    )
+                ) {
+                    Text(option)
+                }
+            }
+        }
+
+        if (greasedStatus == "Sí") {
+            Spacer(Modifier.height(8.dp))
+            Text("Tipo de engrasado:", fontSize = 16.sp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("Total", "Parcial").forEach { option ->
+                    val isSelected = option == greasingAction
+                    val backgroundColor = when (option) {
+                        "Total" -> Color(0xFF4CAF50) // Verde
+                        "Parcial" -> Color(0xFFFFA000) // Naranja
+                        else -> Color.Gray
+                    }
+                    val textColor = if (isSelected) Color.White else Color.Black
+
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .border(
+                                width = 2.dp,
+                                color = if (isSelected) backgroundColor else Color.LightGray,
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                            .clickable { onGreasingActionChange(option) },
+                        shape = RoundedCornerShape(8.dp),
+                        color = if (isSelected) backgroundColor else backgroundColor.copy(alpha = 0.2f)
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = option,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                color = textColor
+                            )
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedTextField(
+                value = greasingObservations,
+                onValueChange = onGreasingObservationsChange,
+                label = { Text("Observaciones del Engrasado", fontWeight = FontWeight.Normal, fontSize = 16.sp) },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 3
+            )
+        }
+    }
+}
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -361,7 +459,7 @@ fun ExtinguisherDatePicker(
         Text("Vigencia EXTINTOR", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 17.sp))
         OutlinedTextField(
             value = selectedDate,
-            onValueChange = {},
+            onValueChange = { /* No-op, la fecha se selecciona a través del diálogo */ },
             readOnly = true,
             label = { Text("Fecha de Vencimiento (YYYY-MM)", fontWeight = FontWeight.Normal, fontSize = 16.sp) },
             trailingIcon = {

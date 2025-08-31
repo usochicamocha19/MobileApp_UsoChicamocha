@@ -6,9 +6,9 @@ data class Form(
     val localId: Int,
     val UUID: String,
     val timestamp: Long,
-    val machineId: Long, // Corregido de equipoId: Int a machineId: Long
-    val userId: Long,    // Corregido de usuarioId: Int a userId: Long
-    val hourmeter: String, // Corregido de horometro: Double a hourmeter: String
+    val machineId: Long,
+    val userId: Long,
+    val hourmeter: String,
     val leakStatus: String,
     val brakeStatus: String,
     val beltsPulleysStatus: String,
@@ -23,6 +23,9 @@ data class Form(
     val structuralStatus: String,
     val expirationDateFireExtinguisher: String,
     val observations: String,
+    val greasingAction: String,
+    val greasingObservations: String,
+    val isUnexpected: Boolean, // <--- CAMPO AÑADIDO/RESTAURADO
     val isSynced: Boolean
 )
 
@@ -31,9 +34,9 @@ fun Form.toEntity(): FormEntity {
         localId = this.localId,
         UUID = this.UUID,
         timestamp = this.timestamp,
-        machineId = this.machineId, // Corregido de equipoId
-        userId = this.userId,       // Corregido de usuarioId
-        hourmeter = this.hourmeter, // Corregido de horometro
+        machineId = this.machineId,
+        userId = this.userId,
+        hourmeter = this.hourmeter,
         leakStatus = this.leakStatus,
         brakeStatus = this.brakeStatus,
         beltsPulleysStatus = this.beltsPulleysStatus,
@@ -48,6 +51,9 @@ fun Form.toEntity(): FormEntity {
         structuralStatus = this.structuralStatus,
         expirationDateFireExtinguisher = this.expirationDateFireExtinguisher,
         observations = this.observations,
+        greasingAction = this.greasingAction,
+        greasingObservations = this.greasingObservations,
+        isUnexpected = this.isUnexpected, // <--- NUEVO CAMPO MAPEADO
         isSynced = this.isSynced
     )
 }

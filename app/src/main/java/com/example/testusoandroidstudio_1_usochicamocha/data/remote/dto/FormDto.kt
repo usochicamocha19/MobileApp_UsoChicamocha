@@ -11,8 +11,8 @@ data class FormDto(
     @field:Json(name = "dateStamp")
     val dateStamp: String, // Formato ISO 8601 UTC, ej: "2025-08-26T14:15:39.072Z"
 
-    @field:Json(name = "hourmeter")
-    val hourmeter: String,
+    @field:Json(name = "hourMeter") // CAMBIADO
+    val hourMeter: String, // CAMBIADO
 
     @field:Json(name = "leakStatus")
     val leakStatus: String,
@@ -60,5 +60,14 @@ data class FormDto(
     val userId: Long,
 
     @field:Json(name = "machineId")
-    val machineId: Long
+    val machineId: Long,
+
+    @field:Json(name = "greasingAction")
+    val greasingAction: String,
+
+    @field:Json(name = "greasingObservations")
+    val greasingObservations: String,
+
+    @field:Json(name = "isUnexpected")
+    val isUnexpected: Boolean
 )

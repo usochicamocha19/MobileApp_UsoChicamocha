@@ -25,6 +25,9 @@ data class FormEntity(
     val structuralStatus: String, // Anteriormente estadoEstructural
     val expirationDateFireExtinguisher: String, // Anteriormente vigenciaExtintor
     val observations: String, // Anteriormente observaciones
+    val greasingAction: String, // Nuevo campo
+    val greasingObservations: String, // Nuevo campo
+    val isUnexpected: Boolean, // <--- NUEVO CAMPO AÑADIDO
     var isSynced: Boolean = false
 )
 
@@ -50,6 +53,9 @@ fun FormEntity.toDomain(): Form {
         structuralStatus = structuralStatus,
         expirationDateFireExtinguisher = expirationDateFireExtinguisher,
         observations = observations,
+        greasingAction = this.greasingAction,
+        greasingObservations = this.greasingObservations,
+        isUnexpected = this.isUnexpected, // <--- NUEVO CAMPO MAPEADO
         isSynced = isSynced
     )
 }
