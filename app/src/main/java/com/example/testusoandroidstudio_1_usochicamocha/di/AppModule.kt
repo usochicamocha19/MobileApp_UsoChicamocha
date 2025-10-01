@@ -2,29 +2,23 @@ package com.example.testusoandroidstudio_1_usochicamocha.di
 
 import android.content.Context
 import androidx.room.Room
+import androidx.work.WorkManager
 import com.example.testusoandroidstudio_1_usochicamocha.data.local.AppDatabase
 import com.example.testusoandroidstudio_1_usochicamocha.data.local.TokenManager
-import com.example.testusoandroidstudio_1_usochicamocha.data.local.dao.FormDao
-import com.example.testusoandroidstudio_1_usochicamocha.data.local.dao.LogDao
-import com.example.testusoandroidstudio_1_usochicamocha.data.local.dao.MachineDao
+import com.example.testusoandroidstudio_1_usochicamocha.data.local.dao.*
 import com.example.testusoandroidstudio_1_usochicamocha.data.remote.ApiService
 import com.example.testusoandroidstudio_1_usochicamocha.data.remote.AuthInterceptor
 import com.example.testusoandroidstudio_1_usochicamocha.data.remote.TokenAuthenticator
-import com.example.testusoandroidstudio_1_usochicamocha.data.repository.AuthRepositoryImpl
-import com.example.testusoandroidstudio_1_usochicamocha.data.repository.FormRepositoryImpl
-import com.example.testusoandroidstudio_1_usochicamocha.data.repository.LogRepositoryImpl
-import com.example.testusoandroidstudio_1_usochicamocha.data.repository.MachineRepositoryImpl
-import com.example.testusoandroidstudio_1_usochicamocha.domain.repository.AuthRepository
-import com.example.testusoandroidstudio_1_usochicamocha.domain.repository.FormRepository
-import com.example.testusoandroidstudio_1_usochicamocha.domain.repository.LogRepository
-import com.example.testusoandroidstudio_1_usochicamocha.domain.repository.MachineRepository
-import com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.auth.LoginUseCase
-import com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.auth.LogoutUseCase
-import com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.auth.ValidateSessionUseCase
-import com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.form.GetPendingFormsUseCase
+import com.example.testusoandroidstudio_1_usochicamocha.data.repository.*
+import com.example.testusoandroidstudio_1_usochicamocha.domain.repository.*
+import com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.auth.*
+import com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.form.*
 import com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.log.GetLogsUseCase
 import com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.machine.GetLocalMachinesUseCase
 import com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.machine.SyncMachinesUseCase
+import com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.maintenance.*
+import com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.oil.GetLocalOilsUseCase
+import com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.oil.SyncOilsUseCase
 import com.example.testusoandroidstudio_1_usochicamocha.util.AppLogger
 import com.example.testusoandroidstudio_1_usochicamocha.util.NetworkMonitor
 import dagger.Module
@@ -42,9 +36,17 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object AppModule {
 
-    private const val BASE_URL = "https://pdxs8r4k-8080.use2.devtunnels.ms/"+"api/v1/"
-
-
+    private const val BASE_URL = "https://pdxs8r4k-8080.use2.devtunnels.ms/"+"api/"
+    /**
+     * Esta es la "receta" que Hilt necesita.
+     * Le dice: "Cuando alguien pida un WorkManager, ejecuta este código".
+     * El código simplemente obtiene la instancia única (singleton) de WorkManager.
+     */
+    @Provides
+    @Singleton
+    fun provideWorkManager(@ApplicationContext context: Context): WorkManager {
+        return WorkManager.getInstance(context)
+    }
     @Provides
     @Singleton
     fun provideApiService(tokenAuthenticator: TokenAuthenticator, authInterceptor: AuthInterceptor): ApiService {
@@ -64,59 +66,6 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideTokenManager(@ApplicationContext context: Context): TokenManager = TokenManager(context)
-
-    @Provides
-    @Singleton
-    fun provideNetworkMonitor(@ApplicationContext context: Context): NetworkMonitor = NetworkMonitor(context)
-
-    @Provides
-    @Singleton
-    fun provideAuthRepository(apiService: ApiService, tokenManager: TokenManager): AuthRepository = AuthRepositoryImpl(apiService, tokenManager)
-
-    @Provides
-    @Singleton
-    fun provideLoginUseCase(authRepository: AuthRepository, logger: AppLogger): LoginUseCase {
-        return LoginUseCase(authRepository, logger)
-    }
-
-    @Provides
-    @Singleton
-    fun provideSyncMachinesUseCase(machineRepository: MachineRepository, logger: AppLogger): SyncMachinesUseCase {
-        return SyncMachinesUseCase(machineRepository, logger)
-    }
-
-    @Provides
-    @Singleton
-    fun provideValidateSessionUseCase(
-        tokenManager: TokenManager,
-        authRepository: AuthRepository,
-        networkMonitor: NetworkMonitor
-    ): ValidateSessionUseCase {
-        return ValidateSessionUseCase(tokenManager, authRepository, networkMonitor)
-    }
-
-    @Provides
-    @Singleton
-    fun provideLogoutUseCase(authRepository: AuthRepository): LogoutUseCase = LogoutUseCase(authRepository)
-
-    @Provides
-    @Singleton
-    fun provideFormRepository(
-        formDao: FormDao,
-        apiService: ApiService
-    ): FormRepository = FormRepositoryImpl(formDao, apiService)
-
-    @Provides
-    @Singleton
-    fun provideGetPendingFormsUseCase(formRepository: FormRepository): GetPendingFormsUseCase = GetPendingFormsUseCase(formRepository)
-
-    @Provides
-    @Singleton
-    fun provideFormDao(appDatabase: AppDatabase): FormDao = appDatabase.formDao()
-
-    @Provides
-    @Singleton
     fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase {
         return Room.databaseBuilder(context, AppDatabase::class.java, "app_database")
             .fallbackToDestructiveMigration()
@@ -125,7 +74,25 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideAuthInterceptor(tokenManager: TokenManager): AuthInterceptor = AuthInterceptor(tokenManager)
+    fun provideTokenManager(@ApplicationContext context: Context): TokenManager = TokenManager(context)
+
+    @Provides
+    @Singleton
+    fun provideNetworkMonitor(@ApplicationContext context: Context): NetworkMonitor = NetworkMonitor(context)
+
+    // Repositories
+    @Provides
+    @Singleton
+    fun provideAuthRepository(apiService: ApiService, tokenManager: TokenManager): AuthRepository = AuthRepositoryImpl(apiService, tokenManager)
+
+    @Provides
+    @Singleton
+    fun provideFormRepository(
+        @ApplicationContext context: Context,
+        formDao: FormDao,
+        imageDao: ImageDao, // Añadido
+        apiService: ApiService
+    ): FormRepository = FormRepositoryImpl(context, formDao, imageDao, apiService) // Actualizado
 
     @Provides
     @Singleton
@@ -133,21 +100,101 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideGetLocalMachinesUseCase(machineRepository: MachineRepository): GetLocalMachinesUseCase = GetLocalMachinesUseCase(machineRepository)
-
-    @Provides
-    @Singleton
-    fun provideMachineDao(appDatabase: AppDatabase): MachineDao = appDatabase.machineDao()
-
-    @Provides
-    @Singleton
-    fun provideLogDao(appDatabase: AppDatabase): LogDao = appDatabase.logDao()
-
-    @Provides
-    @Singleton
     fun provideLogRepository(logDao: LogDao): LogRepository = LogRepositoryImpl(logDao)
 
     @Provides
     @Singleton
-    fun provideGetLogsUseCase(logRepository: LogRepository): GetLogsUseCase = GetLogsUseCase(logRepository)
+    fun provideMaintenanceRepository(maintenanceDao: MaintenanceDao, apiService: ApiService): MaintenanceRepository {
+        return MaintenanceRepositoryImpl(maintenanceDao, apiService)
+    }
+
+    // DAOs
+    @Provides
+    @Singleton
+    fun provideFormDao(db: AppDatabase): FormDao = db.formDao()
+
+    @Provides
+    @Singleton
+    fun provideImageDao(db: AppDatabase): ImageDao = db.imageDao() // Añadido
+
+    @Provides
+    @Singleton
+    fun provideMachineDao(db: AppDatabase): MachineDao = db.machineDao()
+
+    @Provides
+    @Singleton
+    fun provideLogDao(db: AppDatabase): LogDao = db.logDao()
+
+    @Provides
+    @Singleton
+    fun provideMaintenanceDao(db: AppDatabase): MaintenanceDao = db.maintenanceDao()
+
+    // Use Cases
+    @Provides
+    @Singleton
+    fun provideLoginUseCase(repo: AuthRepository, logger: AppLogger): LoginUseCase = LoginUseCase(repo, logger)
+
+    @Provides
+    @Singleton
+    fun provideSyncMachinesUseCase(repo: MachineRepository, logger: AppLogger): SyncMachinesUseCase = SyncMachinesUseCase(repo, logger)
+
+    @Provides
+    @Singleton
+    fun provideValidateSessionUseCase(tm: TokenManager, repo: AuthRepository, nm: NetworkMonitor): ValidateSessionUseCase = ValidateSessionUseCase(tm, repo, nm)
+
+    @Provides
+    @Singleton
+    fun provideLogoutUseCase(repo: AuthRepository): LogoutUseCase = LogoutUseCase(repo)
+
+    @Provides
+    @Singleton
+    fun provideGetPendingFormsUseCase(repo: FormRepository): GetPendingFormsUseCase = GetPendingFormsUseCase(repo)
+
+    @Provides
+    @Singleton
+    fun provideGetLocalMachinesUseCase(repo: MachineRepository): GetLocalMachinesUseCase = GetLocalMachinesUseCase(repo)
+
+    @Provides
+    @Singleton
+    fun provideGetLogsUseCase(repo: LogRepository): GetLogsUseCase = GetLogsUseCase(repo)
+
+    @Provides
+    @Singleton
+    fun provideSaveMaintenanceFormUseCase(repo: MaintenanceRepository): SaveMaintenanceFormUseCase = SaveMaintenanceFormUseCase(repo)
+
+    @Provides
+    @Singleton
+    fun provideGetPendingMaintenanceFormsUseCase(repo: MaintenanceRepository): GetPendingMaintenanceFormsUseCase = GetPendingMaintenanceFormsUseCase(repo)
+
+    @Provides
+    @Singleton
+    fun provideSyncMaintenanceFormsUseCase(repo: MaintenanceRepository): SyncMaintenanceFormsUseCase = SyncMaintenanceFormsUseCase(repo)
+
+    // Repositorio
+    @Provides
+    @Singleton
+    fun provideOilRepository(apiService: ApiService, oilDao: OilDao): OilRepository =
+        OilRepositoryImpl(apiService, oilDao)
+
+    // DAO
+    @Provides
+    @Singleton
+    fun provideOilDao(db: AppDatabase): OilDao = db.oilDao()
+
+    // Casos de Uso
+    @Provides
+    @Singleton
+    fun provideSyncOilsUseCase(repo: OilRepository, logger: AppLogger): SyncOilsUseCase =
+        SyncOilsUseCase(repo, logger)
+
+    @Provides
+    @Singleton
+    fun provideGetLocalOilsUseCase(repo: OilRepository): GetLocalOilsUseCase =
+        GetLocalOilsUseCase(repo)
+
+    @Provides
+    @Singleton
+    fun provideSyncPendingImagesUseCase(repo: FormRepository): SyncPendingImagesUseCase = // Añadido
+        SyncPendingImagesUseCase(repo)
 }
+

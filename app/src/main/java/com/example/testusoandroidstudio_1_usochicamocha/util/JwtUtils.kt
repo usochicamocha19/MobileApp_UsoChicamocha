@@ -8,12 +8,7 @@ import java.util.Locale
 
 object JwtUtils {
 
-    /**
-     * Comprueba si un token JWT ha expirado, AHORA indicando qué tipo de token es.
-     * @param token El token JWT a verificar.
-     * @param tokenType Un String para identificar el token en los logs (ej. "Access Token").
-     * @return `true` si el token ha expirado, `false` en caso contrario.
-     */
+
     fun isTokenExpired(token: String, tokenType: String): Boolean {
         try {
             val parts = token.split(".")

@@ -63,7 +63,7 @@ class MainActivity : ComponentActivity() {
                                             popUpTo("splash") { inclusive = true }
                                         }
                                     }
-                                )
+                                 )
                             }
                         }
                     }
@@ -81,7 +81,7 @@ class MainActivity : ComponentActivity() {
                             onNavigateToForm = {
                                 navController.navigate("form")
                             },
-                                    onNavigateToImprevisto = {
+                            onNavigateToImprevisto = {
                                 navController.navigate("imprevisto")
                             },
                             onNavigateToMantenimiento = {
@@ -104,10 +104,18 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     composable("imprevisto") {
-                        ImprevistoScreen()
+                        ImprevistoScreen(
+                            onNavigateBack = {
+                                navController.popBackStack()
+                            }
+                        )
                     }
                     composable("mantenimiento") {
-                        MantenimientoScreen()
+                        MantenimientoScreen(
+                            onNavigateBack = {
+                                navController.popBackStack()
+                            }
+                        )
                     }
 
                 }

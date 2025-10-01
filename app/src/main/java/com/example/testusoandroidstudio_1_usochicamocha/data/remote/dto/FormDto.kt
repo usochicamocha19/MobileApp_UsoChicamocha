@@ -1,19 +1,16 @@
 package com.example.testusoandroidstudio_1_usochicamocha.data.remote.dto
 
-// Asumiendo Moshi, si usas Gson, las anotaciones @field:Json serían @SerializedName
-import com.squareup.moshi.Json // Para Moshi
-// import com.google.gson.annotations.SerializedName // Para Gson
+import com.squareup.moshi.Json
+
 
 data class FormDto(
-    @field:Json(name = "UUID") // El backend espera "UUID" en mayúsculas
+    @field:Json(name = "UUID")
     val UUID: String,
 
     @field:Json(name = "dateStamp")
-    val dateStamp: String, // Formato ISO 8601 UTC, ej: "2025-08-26T14:15:39.072Z"
-
-    @field:Json(name = "hourMeter") // CAMBIADO
-    val hourMeter: String, // CAMBIADO
-
+    val dateStamp: String,
+    @field:Json(name = "hourmeter")
+    val hourMeter: String,
     @field:Json(name = "leakStatus")
     val leakStatus: String,
 

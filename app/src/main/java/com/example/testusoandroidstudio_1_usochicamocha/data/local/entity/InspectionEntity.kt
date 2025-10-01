@@ -47,8 +47,8 @@ data class InspectionEntity(
     val structuralStatus: String,
     val temperatureStatus: String,
     val tireLanesStatus: String,
-    val machineId: Long, // Clave foránea a MachineEntity
-    val userId: Long     // Clave foránea (UserEntity FK comentada arriba)
+    val machineId: Long,
+    val userId: Long
 )
 
 // Mapeo a modelo de Dominio (Inspection)

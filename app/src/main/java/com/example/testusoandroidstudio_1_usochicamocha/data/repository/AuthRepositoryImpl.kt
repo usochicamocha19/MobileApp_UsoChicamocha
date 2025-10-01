@@ -23,21 +23,19 @@ class AuthRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 val loginResponse = response.body()!!
 
-                // --- CORRECCIÓN ---
-                // Verificamos que la respuesta contenga los tokens Y el ID del usuario directamente.
-                // Asegúrate de que tu LoginResponse.kt tenga una propiedad como 'val userId: Int?'.
+
                 if (loginResponse.accessToken != null && loginResponse.refreshToken != null && loginResponse.userId != null) {
                     val accessToken = loginResponse.accessToken
                     val refreshToken = loginResponse.refreshToken
-                    val userId = loginResponse.userId // <-- Obtenemos el ID directamente.
+                    val userId = loginResponse.userId
 
-                    // --- LA LÓGICA DE GUARDADO COMPLETA ---
+
                     tokenManager.saveTokens(accessToken, refreshToken)
                     tokenManager.saveUserId(userId)
 
                     Result.success(UserSession(accessToken = accessToken, refreshToken = refreshToken))
                 } else {
-                    // Si falta alguna parte de la información esperada.
+
                     Result.failure(Exception(loginResponse.message ?: "Respuesta inválida del servidor."))
                 }
             } else {

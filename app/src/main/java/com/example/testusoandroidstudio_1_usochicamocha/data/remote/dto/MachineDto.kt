@@ -14,7 +14,7 @@ data class MachineDto(
     val name: String?,
     @SerializedName("num_engine") // Clave JSON del backend
     val engineNumber: String?,
-    @SerializedName("num_inter_identification") // Clave JSON del backend
+    @SerializedName("numInterIdentification") // Clave JSON del backend
     val internalIdentificationNumber: String?,
     @SerializedName("runt") // Clave JSON del backend
     val runtExpirationDate: String?,

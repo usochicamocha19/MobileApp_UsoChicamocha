@@ -15,8 +15,7 @@ sealed class SessionStatus {
     object EXPIRED : SessionStatus()
 }
 
-// --- CLASE CORREGIDA ---
-// Volvemos a inyectar el NetworkMonitor para tomar la decisión correcta.
+
 class ValidateSessionUseCase @Inject constructor(
     private val tokenManager: TokenManager,
     private val authRepository: AuthRepository,

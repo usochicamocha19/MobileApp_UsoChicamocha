@@ -1,25 +1,44 @@
 package com.example.testusoandroidstudio_1_usochicamocha.data.remote
 
 import com.example.testusoandroidstudio_1_usochicamocha.data.remote.dto.FormDto
+import com.example.testusoandroidstudio_1_usochicamocha.data.remote.dto.FormSyncResponse
 import com.example.testusoandroidstudio_1_usochicamocha.data.remote.dto.LoginRequest
 import com.example.testusoandroidstudio_1_usochicamocha.data.remote.dto.LoginResponse
 import com.example.testusoandroidstudio_1_usochicamocha.data.remote.dto.MachineDto
 import com.example.testusoandroidstudio_1_usochicamocha.data.remote.dto.NewAccessTokenResponse
+import com.example.testusoandroidstudio_1_usochicamocha.data.remote.dto.OilDto
 import com.example.testusoandroidstudio_1_usochicamocha.data.remote.dto.RefreshTokenRequest
+import com.example.testusoandroidstudio_1_usochicamocha.data.remote.request.OilChangeRequest
+import okhttp3.MultipartBody
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
+import retrofit2.http.Multipart
 import retrofit2.http.POST
+import retrofit2.http.Part
+import retrofit2.http.Path
 
-// Interfaz que define todos los endpoints de nuestro backend.
+
 interface ApiService {
 
-    @POST("auth/login")
+    @GET("v1/oil/brand")
+    suspend fun getOils(): Response<List<OilDto>>
+    @POST("v1/auth/login")
     suspend fun login(@Body request: LoginRequest): Response<LoginResponse>
-    @POST("auth/token/refresh")
+    @POST("v1/auth/token/refresh")
     suspend fun refreshToken(@Body request: RefreshTokenRequest): Response<NewAccessTokenResponse>
-    @GET("machine")
+    @GET("v1/machine")
     suspend fun getMachines(): Response<List<MachineDto>>
-    @POST("inspection")
-    suspend fun syncForm(@Body form: FormDto): Response<Unit>
+    @POST("v1/inspection")
+    suspend fun syncForm(@Body form: FormDto): Response<FormSyncResponse>
+    @POST("oil-changes/motor")
+    suspend fun syncMotorOilChange(@Body request: OilChangeRequest): Response<Unit>
+    @POST("oil-changes/hydraulic")
+    suspend fun syncHydraulicOilChange(@Body request: OilChangeRequest): Response<Unit>
+    @Multipart
+    @POST("v1/inspection/{id}/image")
+    suspend fun syncImage(
+        @Path("id") formId: Long,
+        @Part imagen: MultipartBody.Part
+    ): Response<Unit>
 }

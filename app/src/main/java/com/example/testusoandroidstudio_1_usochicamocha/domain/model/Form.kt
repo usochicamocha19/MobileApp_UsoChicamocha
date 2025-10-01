@@ -2,8 +2,14 @@ package com.example.testusoandroidstudio_1_usochicamocha.domain.model
 
 import com.example.testusoandroidstudio_1_usochicamocha.data.local.entity.FormEntity
 
+/**
+ * Representa una inspección en la capa de Dominio.
+ * Es el objeto de datos "limpio" que usa la lógica de negocio y la UI.
+ */
 data class Form(
     val localId: Int,
+    // CORRECCIÓN: Se añade la propiedad serverId, que puede ser nula.
+    val serverId: Long?,
     val UUID: String,
     val timestamp: Long,
     val machineId: Long,
@@ -25,13 +31,18 @@ data class Form(
     val observations: String,
     val greasingAction: String,
     val greasingObservations: String,
-    val isUnexpected: Boolean, // <--- CAMPO AÑADIDO/RESTAURADO
+    val isUnexpected: Boolean,
     val isSynced: Boolean
 )
 
+/**
+ * Función de extensión para mapear el objeto de Dominio a una Entidad de base de datos.
+ */
 fun Form.toEntity(): FormEntity {
     return FormEntity(
         localId = this.localId,
+        // CORRECCIÓN: Se añade el mapeo de serverId.
+        serverId = this.serverId,
         UUID = this.UUID,
         timestamp = this.timestamp,
         machineId = this.machineId,
@@ -53,7 +64,8 @@ fun Form.toEntity(): FormEntity {
         observations = this.observations,
         greasingAction = this.greasingAction,
         greasingObservations = this.greasingObservations,
-        isUnexpected = this.isUnexpected, // <--- NUEVO CAMPO MAPEADO
+        isUnexpected = this.isUnexpected,
         isSynced = this.isSynced
     )
 }
+

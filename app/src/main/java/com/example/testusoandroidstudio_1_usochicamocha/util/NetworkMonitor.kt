@@ -11,10 +11,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/**
- * Versión final y robusta que monitorea el estado de la red.
- * Usa un StateFlow para emitir una única señal compartida a toda la app.
- */
 class NetworkMonitor(context: Context) {
 
     private val connectivityManager =

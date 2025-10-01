@@ -5,12 +5,10 @@ import com.example.testusoandroidstudio_1_usochicamocha.domain.repository.AuthRe
 import com.example.testusoandroidstudio_1_usochicamocha.util.AppLogger
 import javax.inject.Inject
 
-/**
- * Caso de Uso para el inicio de sesión. Orquesta la lógica del flujo de login.
- */
+
 class LoginUseCase @Inject constructor(
     private val authRepository: AuthRepository,
-    private val logger: AppLogger // <-- Inyectamos el logger
+    private val logger: AppLogger
 ) {
     suspend operator fun invoke(user: String, pass: String): Result<UserSession> {
         logger.log("Intento de login para usuario '$user'")

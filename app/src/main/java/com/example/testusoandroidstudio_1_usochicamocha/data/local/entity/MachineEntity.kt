@@ -26,6 +26,20 @@ fun MachineEntity.toDomain(): Machine {
         internalIdentificationNumber = internalIdentificationNumber,
         runtExpirationDate = runtExpirationDate,
         soatExpirationDate = soatExpirationDate,
-        // isSelected se manejará en el dominio/ViewModel, no es parte de la entidad persistida directamente desde el DTO
+        // isSelected is not in MachineEntity, default in Machine is false
+    )
+}
+
+// New extension function to map Machine to MachineEntity
+fun Machine.toEntity(): MachineEntity {
+    return MachineEntity(
+        id = id,
+        name = name,
+        brand = brand,
+        model = model,
+        engineNumber = engineNumber,
+        internalIdentificationNumber = internalIdentificationNumber,
+        runtExpirationDate = runtExpirationDate,
+        soatExpirationDate = soatExpirationDate
     )
 }

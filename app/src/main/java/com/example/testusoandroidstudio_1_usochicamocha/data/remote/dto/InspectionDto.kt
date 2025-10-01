@@ -17,7 +17,7 @@ data class InspectionDto(
     @SerializedName("coolant_status")
     val coolantStatus: String?,
     @SerializedName("date_stamp")
-    val dateStamp: String?, // Timestamps a menudo vienen como String ISO 8601
+    val dateStamp: String?,
     @SerializedName("electrical_status")
     val electricalStatus: String?,
     @SerializedName("expiration_date_fire_extinguisher")
@@ -43,19 +43,19 @@ data class InspectionDto(
     @SerializedName("machine_id")
     val machineId: Long,
     @SerializedName("user_id")
-    val userId: Long // O String si el user_id es un UUID/texto
+    val userId: Long
 )
 
-// Mapeo a InspectionEntity (lo definiremos completamente cuando tengamos InspectionEntity)
+
 fun InspectionDto.toEntity(): InspectionEntity {
     return InspectionEntity(
         id = id,
-        UUID = UUID ?: "", // Proporcionar un valor por defecto si es nulo y la entidad no lo permite
+        UUID = UUID ?: "",
         beltsPulleysStatus = beltsPulleysStatus ?: "N/A",
         brakeStatus = brakeStatus ?: "N/A",
         carIgnitionStatus = carIgnitionStatus ?: "N/A",
         coolantStatus = coolantStatus ?: "N/A",
-        dateStamp = dateStamp ?: "", // O manejar la conversión de fecha aquí si es necesario
+        dateStamp = dateStamp ?: "",
         electricalStatus = electricalStatus ?: "N/A",
         expirationDateFireExtinguisher = expirationDateFireExtinguisher ?: "N/A",
         hourmeter = hourmeter ?: "0",

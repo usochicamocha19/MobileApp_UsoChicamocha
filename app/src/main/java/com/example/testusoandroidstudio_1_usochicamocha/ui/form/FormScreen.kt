@@ -1,11 +1,11 @@
 package com.example.testusoandroidstudio_1_usochicamocha.ui.form
 
 import android.Manifest
-import android.app.DatePickerDialog
 import android.net.Uri
-import android.widget.DatePicker
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,8 +18,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
@@ -36,7 +34,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -47,6 +44,7 @@ import com.example.testusoandroidstudio_1_usochicamocha.domain.model.Machine
 import java.io.File
 import java.util.Calendar
 
+@RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FormScreen(
@@ -57,8 +55,6 @@ fun FormScreen(
     val context = LocalContext.current
 
     // --- LÓGICA PARA SELECCIONAR IMÁGENES ---
-
-    // 1. Launcher para la galería de fotos
     val pickImageLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent(),
         onResult = { uri: Uri? ->
@@ -66,39 +62,39 @@ fun FormScreen(
         }
     )
 
-    // 2. Launcher para la cámara
     var tempImageUri by remember { mutableStateOf<Uri?>(null) }
     val takePictureLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture(),
         onResult = { success ->
             if (success) {
+                // Usamos tempImageUri aquí, que fue asignado antes de lanzar la cámara
                 tempImageUri?.let { viewModel.onImageSelected(it) }
             }
         }
     )
 
-    // 3. Launcher para pedir permisos
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
         onResult = { isGranted ->
             if (isGranted) {
-                // Si se concede el permiso, lanza la cámara
                 val file = File(context.cacheDir, "photo_${System.currentTimeMillis()}.jpg")
-                tempImageUri = FileProvider.getUriForFile(
+                val newUri = FileProvider.getUriForFile(
                     context,
                     "${context.packageName}.provider",
                     file
                 )
-                takePictureLauncher.launch(tempImageUri)
+                // CORRECCIÓN: Guardamos la URI en la variable de estado
+                tempImageUri = newUri
+                // Y lanzamos el launcher con la variable local newUri, que no es nula
+                takePictureLauncher.launch(newUri)
             }
         }
     )
 
-    // Navega hacia atrás cuando el guardado se completa.
     LaunchedEffect(uiState.saveCompleted) {
         if (uiState.saveCompleted) {
             onNavigateBack()
-            viewModel.onNavigationDone() // Resetea el estado para evitar re-navegación
+            viewModel.onNavigationDone()
         }
     }
 
@@ -133,48 +129,44 @@ fun FormScreen(
             }
             item { Divider(modifier = Modifier.padding(vertical = 8.dp)) }
 
-
-
-                    item {
-                        OutlinedTextField(
-                            value = uiState.horometro,
-                            onValueChange = { newValue ->
-                                if (newValue.all { it.isDigit() }) {
-                                    viewModel.onHorometroChange(newValue)
-                                }
-                            },
-                            label = { Text("Escriba el HOROMETRO Actual", fontWeight = FontWeight.Bold, fontSize = 17.sp) },
-                            modifier = Modifier.fillMaxWidth(),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                        )
-                    }
-
+            item {
+                OutlinedTextField(
+                    value = uiState.horometro,
+                    onValueChange = { newValue ->
+                        if (newValue.all { it.isDigit() }) {
+                            viewModel.onHorometroChange(newValue)
+                        }
+                    },
+                    label = { Text("Escriba el HOROMETRO Actual (*)", fontWeight = FontWeight.Bold, fontSize = 17.sp) },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+            }
             item { Divider(modifier = Modifier.padding(vertical = 8.dp)) }
 
-            // --- Lista completa de todos los StatusSelector ---
-            item { StatusSelector("Fugas en el Sistema", uiState.estadoFugas) { viewModel.onEstadoChange("Fugas", it) } }
+            item { StatusSelector("Fugas en el Sistema (*)", uiState.estadoFugas) { viewModel.onEstadoChange("Fugas", it) } }
             item { Divider(modifier = Modifier.padding(vertical = 8.dp)) }
-            item { StatusSelector("Sistema de Frenos", uiState.estadoFrenos) { viewModel.onEstadoChange("Frenos", it) } }
+            item { StatusSelector("Sistema de Frenos (*)", uiState.estadoFrenos) { viewModel.onEstadoChange("Frenos", it) } }
             item { Divider(modifier = Modifier.padding(vertical = 8.dp)) }
-            item { StatusSelector("Estado de Correas y Poleas", uiState.estadoCorreasPoleas) { viewModel.onEstadoChange("CorreasPoleas", it) } }
+            item { StatusSelector("Estado de Correas y Poleas (*)", uiState.estadoCorreasPoleas) { viewModel.onEstadoChange("CorreasPoleas", it) } }
             item { Divider(modifier = Modifier.padding(vertical = 8.dp)) }
-            item { StatusSelector("Estado de Llantas y/o Carriles", uiState.estadoLlantasCarriles) { viewModel.onEstadoChange("LlantasCarriles", it) } }
+            item { StatusSelector("Estado de Llantas y/o Carriles (*)", uiState.estadoLlantasCarriles) { viewModel.onEstadoChange("LlantasCarriles", it) } }
             item { Divider(modifier = Modifier.padding(vertical = 8.dp)) }
-            item { StatusSelector("Sistema de Encendido", uiState.estadoEncendido) { viewModel.onEstadoChange("Encendido", it) } }
+            item { StatusSelector("Sistema de Encendido (*)", uiState.estadoEncendido) { viewModel.onEstadoChange("Encendido", it) } }
             item { Divider(modifier = Modifier.padding(vertical = 8.dp)) }
-            item { StatusSelector("Sistema Eléctrico en General", uiState.estadoElectrico) { viewModel.onEstadoChange("Electrico", it) } }
+            item { StatusSelector("Sistema Eléctrico en General (*)", uiState.estadoElectrico) { viewModel.onEstadoChange("Electrico", it) } }
             item { Divider(modifier = Modifier.padding(vertical = 8.dp)) }
-            item { StatusSelector("Sistema Mecánico en General", uiState.estadoMecanico) { viewModel.onEstadoChange("Mecanico", it) } }
+            item { StatusSelector("Sistema Mecánico en General (*)", uiState.estadoMecanico) { viewModel.onEstadoChange("Mecanico", it) } }
             item { Divider(modifier = Modifier.padding(vertical = 8.dp)) }
-            item { StatusSelector("Nivel de Temperatura", uiState.estadoTemperatura) { viewModel.onEstadoChange("Temperatura", it) } }
+            item { StatusSelector("Nivel de Temperatura (*)", uiState.estadoTemperatura) { viewModel.onEstadoChange("Temperatura", it) } }
             item { Divider(modifier = Modifier.padding(vertical = 8.dp)) }
-            item { StatusSelector("Nivel de Aceite", uiState.estadoAceite) { viewModel.onEstadoChange("Aceite", it) } }
+            item { StatusSelector("Nivel de Aceite (*)", uiState.estadoAceite) { viewModel.onEstadoChange("Aceite", it) } }
             item { Divider(modifier = Modifier.padding(vertical = 8.dp)) }
-            item { StatusSelector("Nivel de Hidraulico", uiState.estadoHidraulico) { viewModel.onEstadoChange("Hidraulico", it) } }
+            item { StatusSelector("Nivel de Hidraulico (*)", uiState.estadoHidraulico) { viewModel.onEstadoChange("Hidraulico", it) } }
             item { Divider(modifier = Modifier.padding(vertical = 8.dp)) }
-            item { StatusSelector("Nivel de Refrigerante", uiState.estadoRefrigerante) { viewModel.onEstadoChange("Refrigerante", it) } }
+            item { StatusSelector("Nivel de Refrigerante (*)", uiState.estadoRefrigerante) { viewModel.onEstadoChange("Refrigerante", it) } }
             item { Divider(modifier = Modifier.padding(vertical = 8.dp)) }
-            item { StatusSelector("Estado Estructural en General", uiState.estadoEstructural) { viewModel.onEstadoChange("Estructural", it) } }
+            item { StatusSelector("Estado Estructural en General (*)", uiState.estadoEstructural) { viewModel.onEstadoChange("Estructural", it) } }
             item { Divider(modifier = Modifier.padding(vertical = 8.dp)) }
 
             item {
@@ -191,26 +183,24 @@ fun FormScreen(
                 OutlinedTextField(
                     value = uiState.observaciones,
                     onValueChange = { viewModel.onObservacionesChange(it) },
-                    label = { Text("Observaciones y/o Aspectos a Revisar", fontWeight = FontWeight.Bold, fontSize = 17.sp) },
+                    label = { Text("Observaciones y/o Aspectos a Revisar (*)", fontWeight = FontWeight.Bold, fontSize = 17.sp) },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 4
                 )
             }
-            item { Divider(modifier = Modifier.padding(vertical = 8.dp)) } // Separador
+            item { Divider(modifier = Modifier.padding(vertical = 8.dp)) }
 
-            // Nueva sección de engrasado
             item {
                 GreasingSection(
-                    greasedStatus = uiState.greasingStatus, // Necesitarás añadir esto a tu UiState
-                    onGreasedStatusChange = { viewModel.onGreasedStatusChange(it) }, // Y esto a tu ViewModel
-                    greasingAction = uiState.greasingAction, // Necesitarás añadir esto a tu UiState
-                    onGreasingActionChange = { viewModel.onGreasingActionChange(it) }, // Y esto a tu ViewModel
-                    greasingObservations = uiState.greasingObservations, // Necesitarás añadir esto a tu UiState
-                    onGreasingObservationsChange = { viewModel.onGreasingObservationsChange(it) } // Y esto a tu ViewModel
+                    greasedStatus = uiState.greasingStatus,
+                    onGreasedStatusChange = { viewModel.onGreasedStatusChange(it) },
+                    greasingAction = uiState.greasingAction,
+                    onGreasingActionChange = { viewModel.onGreasingActionChange(it) },
+                    greasingObservations = uiState.greasingObservations,
+                    onGreasingObservationsChange = { viewModel.onGreasingObservationsChange(it) }
                 )
             }
-             item { Divider(modifier = Modifier.padding(vertical = 8.dp)) } // Separador
-
+            item { Divider(modifier = Modifier.padding(vertical = 8.dp)) }
 
             item {
                 ImageUploadSection(
@@ -226,7 +216,7 @@ fun FormScreen(
                 Button(
                     onClick = { viewModel.onSaveClick() },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = uiState.selectedMachine != null
+                    enabled = uiState.isSaveButtonEnabled
                 ) {
                     Text("Guardar", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 }
@@ -245,15 +235,15 @@ fun FormScreen(
 
 @Composable
 fun GreasingSection(
-    greasedStatus: String, // "Sí", "No", "" (inicial)
+    greasedStatus: String,
     onGreasedStatusChange: (String) -> Unit,
-    greasingAction: String, // "Total", "Parcial", "" (si greasedStatus es "No" o inicial)
+    greasingAction: String,
     onGreasingActionChange: (String) -> Unit,
     greasingObservations: String,
     onGreasingObservationsChange: (String) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Engrasado", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 17.sp))
+        Text("Engrasado (*)", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 17.sp))
         Text("¿Se engrasó la máquina?", fontSize = 16.sp)
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -283,8 +273,8 @@ fun GreasingSection(
                 listOf("Total", "Parcial").forEach { option ->
                     val isSelected = option == greasingAction
                     val backgroundColor = when (option) {
-                        "Total" -> Color(0xFF4CAF50) // Verde
-                        "Parcial" -> Color(0xFFFFA000) // Naranja
+                        "Total" -> Color(0xFF4CAF50)
+                        "Parcial" -> Color(0xFFFFA000)
                         else -> Color.Gray
                     }
                     val textColor = if (isSelected) Color.White else Color.Black
@@ -324,7 +314,6 @@ fun GreasingSection(
     }
 }
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MachineSelector(
@@ -343,7 +332,7 @@ fun MachineSelector(
             value = displayText,
             onValueChange = {},
             readOnly = true,
-            label = { Text("Máquina", fontWeight = FontWeight.Bold, fontSize = 17.sp) },
+            label = { Text("Máquina (*)", fontWeight = FontWeight.Bold, fontSize = 17.sp) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .menuAnchor()
@@ -387,12 +376,11 @@ fun StatusSelector(
             options.forEach { option ->
                 val isSelected = option == selectedOption
                 val backgroundColor = when (option) {
-                    "Óptimo" -> Color(0xFF4CAF50) // Verde
-                    "Regular" -> Color(0xFFFFA000) // Naranja
-                    "Malo" -> Color(0xFFD32F2F) // Rojo
+                    "Óptimo" -> Color(0xFF4CAF50)
+                    "Regular" -> Color(0xFFFFA000)
+                    "Malo" -> Color(0xFFD32F2F)
                     else -> Color.Gray
                 }
-                // Color de texto blanco para los fondos de color, negro/gris oscuro para el fondo claro no seleccionado
                 val textColor = if (isSelected) Color.White else Color.Black
 
                 Surface(
@@ -401,17 +389,17 @@ fun StatusSelector(
                         .height(48.dp)
                         .border(
                             width = 2.dp,
-                            color = if (isSelected) backgroundColor else Color.LightGray, // Borde más visible para no seleccionados
+                            color = if (isSelected) backgroundColor else Color.LightGray,
                             shape = RoundedCornerShape(8.dp)
                         )
                         .clickable { onOptionSelected(option) },
                     shape = RoundedCornerShape(8.dp),
-                    color = if (isSelected) backgroundColor else backgroundColor.copy(alpha = 0.2f) // Fondo más claro para no seleccionados
+                    color = if (isSelected) backgroundColor else backgroundColor.copy(alpha = 0.2f)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
                             text = option,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium, // Más peso para no seleccionados
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                             color = textColor
                         )
                     }
@@ -428,7 +416,6 @@ fun ExtinguisherDatePicker(
 ) {
     val calendar = Calendar.getInstance()
 
-    // Parsea la fecha actual o usa la de hoy como respaldo
     val (initialYear, initialMonth) = remember(selectedDate) {
         if (selectedDate.contains("-")) {
             val parts = selectedDate.split("-")
@@ -459,7 +446,7 @@ fun ExtinguisherDatePicker(
         Text("Vigencia EXTINTOR", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, fontSize = 17.sp))
         OutlinedTextField(
             value = selectedDate,
-            onValueChange = { /* No-op, la fecha se selecciona a través del diálogo */ },
+            onValueChange = { },
             readOnly = true,
             label = { Text("Fecha de Vencimiento (YYYY-MM)", fontWeight = FontWeight.Normal, fontSize = 16.sp) },
             trailingIcon = {
@@ -469,7 +456,7 @@ fun ExtinguisherDatePicker(
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { showDialog = true } // Hace que todo el campo sea clickeable
+                .clickable { showDialog = true }
         )
     }
 }
@@ -488,17 +475,14 @@ fun MonthYearPickerDialog(
     )
 
     Dialog(onDismissRequest = onDismissRequest) {
-        // Tarjeta más ancha y con esquinas más redondeadas
         Card(
             modifier = Modifier.width(400.dp),
             shape = RoundedCornerShape(24.dp)
         ) {
             Column(
-                // Más padding interno para dar más espacio
                 modifier = Modifier.padding(24.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Selector de Año
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -519,9 +503,8 @@ fun MonthYearPickerDialog(
 
                 Spacer(Modifier.height(20.dp))
 
-                // Grilla para seleccionar el Mes (3 columnas, 4 filas)
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(3), // CAMBIO: 3 columnas
+                    columns = GridCells.Fixed(3),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
@@ -529,10 +512,9 @@ fun MonthYearPickerDialog(
                         val isSelected = (selectedYear == initialYear && index == initialMonth)
                         OutlinedButton(
                             onClick = {
-                                onDateSelected(selectedYear, index) // El mes es el índice (0-11)
+                                onDateSelected(selectedYear, index)
                                 onDismissRequest()
                             },
-                            // Botones con altura fija para consistencia
                             modifier = Modifier.height(56.dp),
                             shape = RoundedCornerShape(12.dp),
                             colors = if (isSelected) {
@@ -569,7 +551,7 @@ fun ImageUploadSection(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text("Subir imágenes", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)) // Título en negrita
+            Text("Subir imágenes", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
 
             if (selectedImageUris.isNotEmpty()) {
                 LazyColumn(
@@ -650,7 +632,7 @@ fun ImagePreviewDialog(
             ) {
                 Text(
                     "Previsualización",
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold) // Título en negrita
+                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                 )
                 Spacer(Modifier.height(8.dp))
 
@@ -675,7 +657,10 @@ fun ImagePreviewDialog(
                         Text("Volver")
                     }
                     Button(
-                        onClick = onDelete,
+                        onClick = {
+                            onDelete()
+                            onDismiss() // Cierra el diálogo después de eliminar
+                        },
                         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                     ) {
                         Icon(Icons.Default.Delete, contentDescription = null)
