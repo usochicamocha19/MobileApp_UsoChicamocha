@@ -1,0 +1,21 @@
+package com.example.testusoandroidstudio_1_usochicamocha.data.local.dao
+
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
+import com.example.testusoandroidstudio_1_usochicamocha.data.local.entity.MaintenanceEntity
+import kotlinx.coroutines.flow.Flow
+
+
+@Dao
+interface MaintenanceDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(maintenance: MaintenanceEntity)
+
+    @Query("SELECT * FROM maintenance_forms WHERE isSynced = 0 ORDER BY dateTime DESC")
+    fun getPendingMaintenanceForms(): Flow<List<MaintenanceEntity>>
+
+    @Query("DELETE FROM maintenance_forms WHERE id = :id")
+    suspend fun deleteById(id: Int)
+}
