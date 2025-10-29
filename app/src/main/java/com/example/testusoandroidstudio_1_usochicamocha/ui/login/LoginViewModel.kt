@@ -44,14 +44,16 @@ class LoginViewModel @Inject constructor(
             val loginResult = loginUseCase(uiState.value.username, uiState.value.password)
 
             loginResult.onSuccess {
-                // Si el login es exitoso, AHORA sincronizamos las máquinas
-                val syncResult = syncMachinesUseCase()
-                syncResult.onSuccess {
-                    // Si ambas operaciones son exitosas, procedemos
-                    _uiState.update { it.copy(isLoading = false, loginSuccess = true) }
-                }.onFailure { syncException ->
-                    // Si la sincronización falla (ej. lista vacía), mostramos el error
-                    _uiState.update { it.copy(isLoading = false, error = syncException.message) }
+                // Si el login es exitoso, procedemos inmediatamente
+                _uiState.update { it.copy(isLoading = false, loginSuccess = true) }
+
+                // Intentamos sincronizar máquinas en segundo plano (no bloquea el login)
+                viewModelScope.launch {
+                    val syncResult = syncMachinesUseCase()
+                    syncResult.onFailure { syncException ->
+                        // Log error but don't show to user since login was successful
+                        println("Machine sync failed after login: ${syncException.message}")
+                    }
                 }
             }.onFailure { loginException ->
                 _uiState.update { it.copy(isLoading = false, error = loginException.message) }

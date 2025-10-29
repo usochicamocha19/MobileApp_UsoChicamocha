@@ -128,7 +128,9 @@ class MantenimientoViewModel @Inject constructor(
                 quantity = state.quantity.toDoubleOrNull() ?: 0.0,
                 currentHourMeter = state.currentHourMeter.toIntOrNull() ?: 0,
                 averageHoursChange = state.averageHoursChange.toIntOrNull() ?: 0,
-                type = state.maintenanceType
+                type = state.maintenanceType,
+                isSynced = false,
+                isSyncing = false
             )
 
             _uiState.update { it.copy(isLoading = true, error = null) }

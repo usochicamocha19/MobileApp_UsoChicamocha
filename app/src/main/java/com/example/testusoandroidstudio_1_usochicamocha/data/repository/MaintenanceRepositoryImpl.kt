@@ -34,20 +34,28 @@ class MaintenanceRepositoryImpl @Inject constructor(
 
     override suspend fun syncMaintenanceForm(maintenance: Maintenance): Result<Unit> {
         return try {
+            // Mark as syncing
+            maintenanceDao.markAsSyncing(maintenance.id)
+
             // --- CAMBIO: Llamamos a la nueva función de conversión ---
             val request = maintenance.toOilChangeRequest()
             val response = when (maintenance.type) {
                 "motor" -> apiService.syncMotorOilChange(request)
                 "hydraulic" -> apiService.syncHydraulicOilChange(request)
-                else -> return Result.failure(IllegalArgumentException("Tipo de mantenimiento desconocido: ${maintenance.type}"))
+                else -> {
+                    maintenanceDao.markAsNotSyncing(maintenance.id)
+                    return Result.failure(IllegalArgumentException("Tipo de mantenimiento desconocido: ${maintenance.type}"))
+                }
             }
 
             if (response.isSuccessful) {
                 Result.success(Unit)
             } else {
+                maintenanceDao.markAsNotSyncing(maintenance.id)
                 Result.failure(Exception("Error de API: ${response.code()} - ${response.message()}"))
             }
         } catch (e: Exception) {
+            maintenanceDao.markAsNotSyncing(maintenance.id)
             Result.failure(e)
         }
     }

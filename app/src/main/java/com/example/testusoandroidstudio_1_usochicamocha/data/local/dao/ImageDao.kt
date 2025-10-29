@@ -15,19 +15,26 @@ interface ImageDao {
     @Query("UPDATE pending_images SET isSynced = 1 WHERE localId = :localId")
     suspend fun markAsSynced(localId: Int)
 
+    @Query("UPDATE pending_images SET isSyncing = 1 WHERE localId = :localId")
+    suspend fun markAsSyncing(localId: Int)
+
+    @Query("UPDATE pending_images SET isSyncing = 0 WHERE localId = :localId")
+    suspend fun markAsNotSyncing(localId: Int)
+
     /**
      * CORREGIDO: Se ha renombrado la columna 'pf.serverId as formServerId'
      * a 'pf.serverId as serverId' para que coincida exactamente con la propiedad
      * en el POJO 'ImageForSync', solucionando el error de compilación de Room.
+     * AÑADIDO: Filtrar imágenes que no estén siendo sincronizadas por otro worker
      */
     @Query("""
-        SELECT 
-            pi.localId, 
+        SELECT
+            pi.localId,
             pi.localUri,
             pf.serverId as serverId
         FROM pending_images pi
         INNER JOIN pending_forms pf ON pi.formUUID = pf.UUID
-        WHERE pi.isSynced = 0 AND pf.isSynced = 1 AND pf.serverId IS NOT NULL
+        WHERE pi.isSynced = 0 AND pi.isSyncing = 0 AND pf.isSynced = 1 AND pf.serverId IS NOT NULL
         LIMIT 10
     """)
     fun getPendingImagesForSync(): Flow<List<ImageForSync>>

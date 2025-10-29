@@ -30,7 +30,8 @@ data class FormEntity(
     val greasingAction: String,
     val greasingObservations: String,
     val isUnexpected: Boolean,
-    var isSynced: Boolean = false
+    var isSynced: Boolean = false,
+    var isSyncing: Boolean = false
 )
 
 fun FormEntity.toDomain(): Form {
@@ -61,7 +62,8 @@ fun FormEntity.toDomain(): Form {
         greasingAction = this.greasingAction,
         greasingObservations = this.greasingObservations,
         isUnexpected = this.isUnexpected,
-        isSynced = isSynced
+        isSynced = isSynced,
+        isSyncing = isSyncing
     )
 }
 

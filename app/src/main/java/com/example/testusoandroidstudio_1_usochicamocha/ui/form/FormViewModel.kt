@@ -30,8 +30,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.ZoneId
-import java.time.ZonedDateTime
 import java.util.Calendar
 import java.util.UUID
 import javax.inject.Inject
@@ -121,7 +119,8 @@ class FormViewModel @Inject constructor(
                 state.estadoEstructural.isNotBlank() &&
                 state.observaciones.isNotBlank() &&
                 state.greasingStatus.isNotBlank() &&
-                (state.greasingStatus == "No" || (state.greasingStatus == "Sí" && state.greasingAction.isNotBlank()))
+                (state.greasingStatus == "No" || (state.greasingStatus == "Sí" && state.greasingAction.isNotBlank())) &&
+                state.vigenciaExtintor.isNotBlank() // AÑADIDO: Validar que la fecha del extintor esté seleccionada
 
         _uiState.update { it.copy(isSaveButtonEnabled = isFormValid) }
     }
@@ -225,7 +224,6 @@ class FormViewModel @Inject constructor(
     }
 
 
-    @RequiresApi(Build.VERSION_CODES.O)
     fun onSaveClick() {
         if (!_uiState.value.isSaveButtonEnabled) return
 
@@ -244,9 +242,7 @@ class FormViewModel @Inject constructor(
                 "No" -> "No se engrasó"
                 else -> ""
             }
-            val zonaColombia = ZoneId.of("America/Bogota")
-            val ahoraEnColombia = ZonedDateTime.now(zonaColombia)
-            val timestamp = ahoraEnColombia.toInstant().toEpochMilli()
+            val timestamp = System.currentTimeMillis()
 
             val form = Form(
                 localId = 0,
@@ -273,7 +269,8 @@ class FormViewModel @Inject constructor(
                 greasingAction = finalGreasingAction,
                 greasingObservations = if (currentState.greasingStatus == "Sí") currentState.greasingObservations else "",
                 isUnexpected = false,
-                isSynced = false
+                isSynced = false,
+                isSyncing = false
             )
             val imageUrisAsString = currentState.selectedImageUris.map { it.toString() }
 

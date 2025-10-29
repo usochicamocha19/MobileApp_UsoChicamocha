@@ -6,6 +6,7 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -44,7 +45,6 @@ import com.example.testusoandroidstudio_1_usochicamocha.domain.model.Machine
 import java.io.File
 import java.util.Calendar
 
-@RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FormScreen(
@@ -292,7 +292,10 @@ fun GreasingSection(
                         shape = RoundedCornerShape(8.dp),
                         color = if (isSelected) backgroundColor else backgroundColor.copy(alpha = 0.2f)
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.background(if (isSelected) backgroundColor else backgroundColor.copy(alpha = 0.2f))
+                        ) {
                             Text(
                                 text = option,
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
@@ -324,6 +327,68 @@ fun MachineSelector(
     var expanded by remember { mutableStateOf(false) }
     val displayText = selectedMachine?.let { "${it.name} - ${it.model} - ${it.internalIdentificationNumber}" } ?: "Seleccione una máquina"
 
+    // Test-friendly implementation using a simple dropdown menu instead of ExposedDropdownMenu
+    // This makes the dropdown items accessible to UI tests
+    Column {
+        OutlinedTextField(
+            value = displayText,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Máquina (*)", fontWeight = FontWeight.Bold, fontSize = 17.sp) },
+            trailingIcon = {
+                IconButton(onClick = { expanded = !expanded }) {
+                    Icon(
+                        imageVector = if (expanded) Icons.Default.KeyboardArrowLeft else Icons.Default.KeyboardArrowRight,
+                        contentDescription = if (expanded) "Collapse" else "Expand"
+                    )
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded }
+        )
+
+        // Show dropdown items when expanded - this makes them accessible to tests
+        if (expanded) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, Color.LightGray, RoundedCornerShape(4.dp))
+                    .background(Color.White)
+            ) {
+                machines.forEach { machine ->
+                    val machineText = "${machine.name} - ${machine.model} - ${machine.internalIdentificationNumber}"
+                    Text(
+                        text = machineText,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onMachineSelected(machine)
+                                expanded = false
+                            }
+                            .padding(16.dp),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    if (machine != machines.last()) {
+                        Divider()
+                    }
+                }
+            }
+        }
+    }
+
+    // Debug: Show machines count for troubleshooting
+    if (machines.isEmpty()) {
+        Text(
+            text = "No hay máquinas disponibles. Verifica la sincronización.",
+            color = Color.Red,
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+    }
+
+    /*
+    // Original implementation using ExposedDropdownMenu (commented out for testability)
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { expanded = !expanded }
@@ -358,6 +423,7 @@ fun MachineSelector(
             }
         }
     }
+    */
 }
 
 @Composable

@@ -23,21 +23,14 @@ class AuthRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 val loginResponse = response.body()!!
 
+                val accessToken = loginResponse.accessToken
+                val refreshToken = loginResponse.refreshToken
+                val userId = loginResponse.userId
 
-                if (loginResponse.accessToken != null && loginResponse.refreshToken != null && loginResponse.userId != null) {
-                    val accessToken = loginResponse.accessToken
-                    val refreshToken = loginResponse.refreshToken
-                    val userId = loginResponse.userId
+                tokenManager.saveTokens(accessToken, refreshToken)
+                tokenManager.saveUserId(userId)
 
-
-                    tokenManager.saveTokens(accessToken, refreshToken)
-                    tokenManager.saveUserId(userId)
-
-                    Result.success(UserSession(accessToken = accessToken, refreshToken = refreshToken))
-                } else {
-
-                    Result.failure(Exception(loginResponse.message ?: "Respuesta inválida del servidor."))
-                }
+                Result.success(UserSession(accessToken = accessToken, refreshToken = refreshToken))
             } else {
                 Result.failure(Exception("Usuario o contraseña incorrectos"))
             }

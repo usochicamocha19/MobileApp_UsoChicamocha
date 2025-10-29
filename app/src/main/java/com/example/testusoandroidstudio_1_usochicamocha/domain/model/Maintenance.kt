@@ -16,7 +16,8 @@ data class Maintenance(
     val currentHourMeter: Int,
     val averageHoursChange: Int,
     val type: String,
-    val isSynced: Boolean = false
+    val isSynced: Boolean = false,
+    val isSyncing: Boolean = false
 )
 
 fun Maintenance.toEntity(): MaintenanceEntity {
@@ -30,7 +31,8 @@ fun Maintenance.toEntity(): MaintenanceEntity {
         currentHourMeter = this.currentHourMeter,
         averageHoursChange = this.averageHoursChange,
         type = this.type,
-        isSynced = this.isSynced
+        isSynced = this.isSynced,
+        isSyncing = this.isSyncing
     )
 }
 fun Maintenance.toDto(): MaintenanceDto {

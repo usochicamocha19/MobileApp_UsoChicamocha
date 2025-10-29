@@ -1,6 +1,8 @@
 package com.example.testusoandroidstudio_1_usochicamocha.di
 
 import android.content.Context
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
 import androidx.room.Room
 import androidx.work.WorkManager
 import com.example.testusoandroidstudio_1_usochicamocha.data.local.AppDatabase
@@ -10,6 +12,7 @@ import com.example.testusoandroidstudio_1_usochicamocha.data.remote.ApiService
 import com.example.testusoandroidstudio_1_usochicamocha.data.remote.AuthInterceptor
 import com.example.testusoandroidstudio_1_usochicamocha.data.remote.TokenAuthenticator
 import com.example.testusoandroidstudio_1_usochicamocha.data.repository.*
+import com.example.testusoandroidstudio_1_usochicamocha.data.repository.MaintenanceRepositoryImpl
 import com.example.testusoandroidstudio_1_usochicamocha.domain.repository.*
 import com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.auth.*
 import com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.form.*
@@ -36,7 +39,8 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object AppModule {
 
-    private const val BASE_URL = "https://pdxs8r4k-8080.use2.devtunnels.ms/"+"api/"
+    //private const val BASE_URL = "https://pdxs8r4k-8080.use2.devtunnels.ms/"+"api/"
+    private const val BASE_URL = "https://usochimochabackend.onrender.com/"+"api/"
     /**
      * Esta es la "receta" que Hilt necesita.
      * Le dice: "Cuando alguien pida un WorkManager, ejecuta este código".
@@ -74,7 +78,7 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideTokenManager(@ApplicationContext context: Context): TokenManager = TokenManager(context)
+    fun provideTokenManager(dataStore: DataStore<Preferences>): TokenManager = TokenManager(dataStore)
 
     @Provides
     @Singleton
@@ -197,4 +201,3 @@ object AppModule {
     fun provideSyncPendingImagesUseCase(repo: FormRepository): SyncPendingImagesUseCase = // Añadido
         SyncPendingImagesUseCase(repo)
 }
-

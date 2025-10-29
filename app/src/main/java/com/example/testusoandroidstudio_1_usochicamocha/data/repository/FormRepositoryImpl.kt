@@ -68,6 +68,9 @@ class FormRepositoryImpl @Inject constructor(
 
     override suspend fun syncForm(form: Form): Result<Unit> {
         return try {
+            // Mark as syncing
+            formDao.markAsSyncing(form.UUID)
+
             val formDto = form.toDto()
             val response = apiService.syncForm(formDto)
 
@@ -76,9 +79,13 @@ class FormRepositoryImpl @Inject constructor(
                 formDao.markAsSynced(form.UUID, serverId)
                 Result.success(Unit)
             } else {
+                // Reset syncing flag on failure
+                formDao.markAsNotSyncing(form.UUID)
                 Result.failure(Exception("Error del servidor al sincronizar formulario: ${response.code()}"))
             }
         } catch (e: Exception) {
+            // Reset syncing flag on exception
+            formDao.markAsNotSyncing(form.UUID)
             Result.failure(e)
         }
     }
@@ -128,6 +135,14 @@ class FormRepositoryImpl @Inject constructor(
 
     override suspend fun markImageAsSynced(localId: Int) {
         imageDao.markAsSynced(localId)
+    }
+
+    override suspend fun markImageAsSyncing(localId: Int) {
+        imageDao.markAsSyncing(localId)
+    }
+
+    override suspend fun markImageAsNotSyncing(localId: Int) {
+        imageDao.markAsNotSyncing(localId)
     }
 
     private fun Form.toDto(): FormDto {

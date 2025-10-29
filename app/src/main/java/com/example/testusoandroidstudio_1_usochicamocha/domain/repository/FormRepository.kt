@@ -25,5 +25,7 @@ interface FormRepository {
     fun getPendingImagesForSync(): Flow<List<ImageForSync>>
     suspend fun syncImage(formId: Long, imageUri: String): Result<Unit>
     suspend fun markImageAsSynced(localId: Int)
+    suspend fun markImageAsSyncing(localId: Int)
+    suspend fun markImageAsNotSyncing(localId: Int)
 }
 

@@ -1,6 +1,6 @@
 [versions]
 activityCompose = "1.8.2"
-agp = "8.5.0"
+agp = "8.6.0"
 coilCompose = "2.7.0"
 composeBom = "2024.09.00"
 converterGson = "3.0.0"
@@ -21,6 +21,7 @@ materialIconsExtended = "1.7.8"
 navigationCompose = "2.9.3"
 retrofit = "3.0.0"
 foundation = "1.9.1"
+foundationVersion = "1.9.3"
 
 [libraries]
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
@@ -51,6 +52,7 @@ kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-c
 logging-interceptor = { module = "com.squareup.okhttp3:logging-interceptor", version.ref = "loggingInterceptor" }
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
 androidx-foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundation" }
+foundation = { group = "androidx.compose.foundation", name = "foundation", version.ref = "foundationVersion" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

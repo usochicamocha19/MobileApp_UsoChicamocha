@@ -64,13 +64,14 @@ class SyncDataWorker @AssistedInject constructor(
             }
 
             // 3. IMÁGENES (solo después de formularios y mantenimientos)
+            // CAMBIADO: Usar KEEP para evitar trabajos duplicados si ya hay uno en ejecución
             val imageWork = OneTimeWorkRequestBuilder<ImageSyncWorker>().build()
-            WorkManager.getInstance(applicationContext).enqueueUniqueWork(
+            val enqueueResult = WorkManager.getInstance(applicationContext).enqueueUniqueWork(
                 "chained_image_sync",
-                ExistingWorkPolicy.REPLACE,
+                ExistingWorkPolicy.KEEP, // Mantiene trabajo existente si ya está corriendo
                 imageWork
             )
-            Log.d("SyncDataWorker", "Trabajo de sincronización de imágenes encolado.")
+            Log.d("SyncDataWorker", "Trabajo de sincronización de imágenes encolado (política KEEP).")
             didSyncSomething = true
 
             // 4. DATOS MAESTROS (solo si no había formularios ni mantenimientos ni imágenes pendientes)

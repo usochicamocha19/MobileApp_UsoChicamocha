@@ -30,12 +30,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.ZoneId
-import java.time.ZonedDateTime
 import java.util.*
 import javax.inject.Inject
 
-// ... (El data class ImprevistoUiState no cambia)
 data class ImprevistoUiState(
     val horometro: String = "",
     val observaciones: String = "",
@@ -81,14 +78,12 @@ class ImprevistoViewModel @Inject constructor(
     private val saveFormUseCase: SaveFormUseCase,
     private val getLocalMachinesUseCase: GetLocalMachinesUseCase,
     private val tokenManager: TokenManager,
-    // AÑADIDO: Inyecta la instancia de WorkManager
     private val workManager: WorkManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ImprevistoUiState())
     val uiState = _uiState.asStateFlow()
 
-    // ... (init y el resto de funciones no cambian)
     init {
         viewModelScope.launch {
             getLocalMachinesUseCase().collect { resource ->
@@ -219,7 +214,6 @@ class ImprevistoViewModel @Inject constructor(
     }
 
 
-    @RequiresApi(Build.VERSION_CODES.O)
     fun onSaveClick() {
         if (_uiState.value.selectedMachine == null) {
             return
@@ -239,9 +233,7 @@ class ImprevistoViewModel @Inject constructor(
                 "No" -> "No se engrasó"
                 else -> ""
             }
-            val zonaColombia = ZoneId.of("America/Bogota")
-            val ahoraEnColombia = ZonedDateTime.now(zonaColombia)
-            val timestamp = ahoraEnColombia.toInstant().toEpochMilli()
+            val timestamp = System.currentTimeMillis()
 
             val form = Form(
                 localId = 0,
@@ -268,7 +260,8 @@ class ImprevistoViewModel @Inject constructor(
                 greasingAction = finalGreasingAction,
                 greasingObservations = if (currentState.greasingStatus == "Sí") currentState.greasingObservations else "",
                 isUnexpected = true,
-                isSynced = false
+                isSynced = false,
+                isSyncing = false
             )
 
             val imageUrisAsString = currentState.selectedImageUris.map { it.toString() }

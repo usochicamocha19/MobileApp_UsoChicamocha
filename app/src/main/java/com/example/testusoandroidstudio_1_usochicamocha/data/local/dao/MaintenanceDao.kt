@@ -13,8 +13,14 @@ interface MaintenanceDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(maintenance: MaintenanceEntity)
 
-    @Query("SELECT * FROM maintenance_forms WHERE isSynced = 0 ORDER BY dateTime DESC")
+    @Query("SELECT * FROM maintenance_forms WHERE isSynced = 0 AND isSyncing = 0 ORDER BY dateTime DESC")
     fun getPendingMaintenanceForms(): Flow<List<MaintenanceEntity>>
+
+    @Query("UPDATE maintenance_forms SET isSyncing = 1 WHERE id = :id")
+    suspend fun markAsSyncing(id: Int)
+
+    @Query("UPDATE maintenance_forms SET isSyncing = 0 WHERE id = :id")
+    suspend fun markAsNotSyncing(id: Int)
 
     @Query("DELETE FROM maintenance_forms WHERE id = :id")
     suspend fun deleteById(id: Int)

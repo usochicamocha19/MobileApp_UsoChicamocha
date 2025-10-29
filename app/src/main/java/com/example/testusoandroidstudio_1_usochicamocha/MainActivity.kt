@@ -5,6 +5,8 @@ package com.example.testusoandroidstudio_1_usochicamocha
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.ComposeFoundationFlags
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -31,6 +33,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
 @AndroidEntryPoint
+@OptIn(ExperimentalFoundationApi::class)
 class MainActivity : ComponentActivity() {
 
     @Inject
@@ -38,6 +41,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Temporary fix for Compose clickable issue
+        ComposeFoundationFlags.isNonComposedClickableEnabled = false
 
         setContent {
             AppUsoChicamochaTheme {
