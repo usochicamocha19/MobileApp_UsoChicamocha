@@ -39,8 +39,8 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object AppModule {
 
-    //private const val BASE_URL = "https://pdxs8r4k-8080.use2.devtunnels.ms/"+"api/"
-    private const val BASE_URL = "https://usochimochabackend.onrender.com/"+"api/"
+    private const val BASE_URL = "https://pdxs8r4k-8080.use2.devtunnels.ms/"+"api/"
+    //private const val BASE_URL = "http://localhost:8080/"+"api/"
     /**
      * Esta es la "receta" que Hilt necesita.
      * Le dice: "Cuando alguien pida un WorkManager, ejecuta este código".
