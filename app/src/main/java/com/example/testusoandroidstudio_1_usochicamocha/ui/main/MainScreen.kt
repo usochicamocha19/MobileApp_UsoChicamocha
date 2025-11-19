@@ -174,7 +174,7 @@ fun SyncActionsCard(
                     if (isSyncingMachines) {
                         CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
                     } else {
-                        Text("Sinc. Máquinas")
+                        Text("Sincronizar Máquinas")
                     }
                 }
                 Button(
@@ -185,11 +185,12 @@ fun SyncActionsCard(
                     if (isSyncingOils) {
                         CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
                     } else {
-                        Text("Sinc. Aceites")
+                        Text("Sincronizar Aceites")
                     }
                 }
             }
-            OutlinedButton(
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(
                 onClick = onSyncImagesClicked,
                 modifier = Modifier.fillMaxWidth()
             ) {
@@ -325,12 +326,11 @@ fun PendingMaintenanceCard(
 fun PendingMaintenanceItem(maintenance: Maintenance) {
     val sdf = SimpleDateFormat("HH:mm - dd/MM/yyyy", Locale.getDefault())
     val formattedDate = sdf.format(Date(maintenance.dateTime))
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
+    Column(
+        modifier = Modifier.fillMaxWidth()
     ) {
         Text("Cambio de aceite (${maintenance.type})", fontWeight = FontWeight.Bold)
-        Text(formattedDate)
+        Text(formattedDate, style = MaterialTheme.typography.bodySmall)
     }
 }
 

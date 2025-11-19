@@ -99,7 +99,7 @@ fun ImprevistoScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             item {
-                MachineSelector(
+MachineSelector(
                     machines = uiState.machines,
                     selectedMachine = uiState.selectedMachine,
                     onMachineSelected = { viewModel.onMachineSelected(it) }

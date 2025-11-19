@@ -14,6 +14,7 @@ import com.example.testusoandroidstudio_1_usochicamocha.data.remote.TokenAuthent
 import com.example.testusoandroidstudio_1_usochicamocha.data.repository.*
 import com.example.testusoandroidstudio_1_usochicamocha.data.repository.MaintenanceRepositoryImpl
 import com.example.testusoandroidstudio_1_usochicamocha.domain.repository.*
+import com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.LocalSyncCoordinator
 import com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.auth.*
 import com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.form.*
 import com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.log.GetLogsUseCase
@@ -39,18 +40,15 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object AppModule {
 
-    private const val BASE_URL = "https://pdxs8r4k-8080.use2.devtunnels.ms/"+"api/"
-    //private const val BASE_URL = "http://localhost:8080/"+"api/"
-    /**
-     * Esta es la "receta" que Hilt necesita.
-     * Le dice: "Cuando alguien pida un WorkManager, ejecuta este código".
-     * El código simplemente obtiene la instancia única (singleton) de WorkManager.
-     */
+    //private const val BASE_URL = "https://pdxs8r4k-8080.use2.devtunnels.ms/"+"api/"
+    //private const val BASE_URL = "https://usochimochabackend.onrender.com/"+"api/"
+    private const val BASE_URL = "https://usochicamocha-server.srgavo.com/"+"api/"
     @Provides
     @Singleton
     fun provideWorkManager(@ApplicationContext context: Context): WorkManager {
         return WorkManager.getInstance(context)
     }
+
     @Provides
     @Singleton
     fun provideApiService(tokenAuthenticator: TokenAuthenticator, authInterceptor: AuthInterceptor): ApiService {
@@ -94,9 +92,9 @@ object AppModule {
     fun provideFormRepository(
         @ApplicationContext context: Context,
         formDao: FormDao,
-        imageDao: ImageDao, // Añadido
+        imageDao: ImageDao,
         apiService: ApiService
-    ): FormRepository = FormRepositoryImpl(context, formDao, imageDao, apiService) // Actualizado
+    ): FormRepository = FormRepositoryImpl(context, formDao, imageDao, apiService)
 
     @Provides
     @Singleton
@@ -119,7 +117,7 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideImageDao(db: AppDatabase): ImageDao = db.imageDao() // Añadido
+    fun provideImageDao(db: AppDatabase): ImageDao = db.imageDao()
 
     @Provides
     @Singleton
@@ -132,6 +130,10 @@ object AppModule {
     @Provides
     @Singleton
     fun provideMaintenanceDao(db: AppDatabase): MaintenanceDao = db.maintenanceDao()
+
+    @Provides
+    @Singleton
+    fun provideOilDao(db: AppDatabase): OilDao = db.oilDao()
 
     // Use Cases
     @Provides
@@ -174,30 +176,26 @@ object AppModule {
     @Singleton
     fun provideSyncMaintenanceFormsUseCase(repo: MaintenanceRepository): SyncMaintenanceFormsUseCase = SyncMaintenanceFormsUseCase(repo)
 
-    // Repositorio
     @Provides
     @Singleton
-    fun provideOilRepository(apiService: ApiService, oilDao: OilDao): OilRepository =
-        OilRepositoryImpl(apiService, oilDao)
-
-    // DAO
-    @Provides
-    @Singleton
-    fun provideOilDao(db: AppDatabase): OilDao = db.oilDao()
-
-    // Casos de Uso
-    @Provides
-    @Singleton
-    fun provideSyncOilsUseCase(repo: OilRepository, logger: AppLogger): SyncOilsUseCase =
-        SyncOilsUseCase(repo, logger)
+    fun provideOilRepository(apiService: ApiService, oilDao: OilDao): OilRepository = OilRepositoryImpl(apiService, oilDao)
 
     @Provides
     @Singleton
-    fun provideGetLocalOilsUseCase(repo: OilRepository): GetLocalOilsUseCase =
-        GetLocalOilsUseCase(repo)
+    fun provideSyncOilsUseCase(repo: OilRepository, logger: AppLogger): SyncOilsUseCase = SyncOilsUseCase(repo, logger)
 
     @Provides
     @Singleton
-    fun provideSyncPendingImagesUseCase(repo: FormRepository): SyncPendingImagesUseCase = // Añadido
-        SyncPendingImagesUseCase(repo)
+    fun provideGetLocalOilsUseCase(repo: OilRepository): GetLocalOilsUseCase = GetLocalOilsUseCase(repo)
+
+    @Provides
+    @Singleton
+    fun provideSyncPendingImagesUseCase(repo: FormRepository): SyncPendingImagesUseCase = SyncPendingImagesUseCase(repo)
+
+    @Provides
+    @Singleton
+    fun provideLocalSyncCoordinator(
+        @ApplicationContext context: Context,
+        workManager: WorkManager
+    ): LocalSyncCoordinator = LocalSyncCoordinator(context, workManager)
 }

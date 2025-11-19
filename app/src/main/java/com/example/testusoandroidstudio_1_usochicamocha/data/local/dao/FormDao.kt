@@ -19,11 +19,31 @@ interface FormDao {
     @Query("UPDATE pending_forms SET isSynced = 1, serverId = :serverId, isSyncing = 0 WHERE uuid = :uuid")
     suspend fun markAsSynced(uuid: String, serverId: Long)
 
-    @Query("UPDATE pending_forms SET isSyncing = 1 WHERE uuid = :uuid")
-    suspend fun markAsSyncing(uuid: String)
+    /**
+     * ATOMIC LOCK: Marca un formulario como sincronizando SOLO si no está ya sincronizando
+     * @return 1 si obtuvo el lock exitosamente, 0 si ya estaba siendo sincronizado
+     */
+    @Query("UPDATE pending_forms SET isSyncing = 1 WHERE uuid = :uuid AND isSyncing = 0 AND isSynced = 0")
+    suspend fun acquireFormLock(uuid: String): Int
 
+    /**
+     * Release del lock atómico
+     */
     @Query("UPDATE pending_forms SET isSyncing = 0 WHERE uuid = :uuid")
     suspend fun markAsNotSyncing(uuid: String)
+
+    /**
+     * Verifica si un formulario ya está sincronizado
+     * @return true si está sincronizado, false si no está sincronizado, null si el formulario no existe
+     */
+    @Query("SELECT 1 FROM pending_forms WHERE uuid = :uuid AND isSynced = 1 LIMIT 1")
+    suspend fun isFormAlreadySynced(uuid: String): Boolean?
+
+    /**
+     * Limpia locks colgados (formularios que quedaron en estado isSyncing = 1)
+     */
+    @Query("UPDATE pending_forms SET isSyncing = 0 WHERE isSyncing = 1")
+    suspend fun resetStuckSyncingForms()
 
     /**
      * AÑADIDO: Se restaura esta función para que el FormRepositoryImpl pueda

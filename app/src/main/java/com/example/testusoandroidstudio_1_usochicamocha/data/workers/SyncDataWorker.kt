@@ -21,6 +21,11 @@ import com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.oil.SyncO
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.first
+
+/**
+ * Worker para sincronización de datos que procesa formularios, mantenimientos, imágenes y datos maestros.
+ * Corregido para evitar duplicaciones y loops recursivos.
+ */
 @HiltWorker
 class SyncDataWorker @AssistedInject constructor(
     @Assisted appContext: Context,
@@ -35,79 +40,111 @@ class SyncDataWorker @AssistedInject constructor(
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result {
-        try{
-        Log.d("SyncDataWorker", "Iniciando trabajo de sincronización...")
+        Log.d("SyncDataWorker", "=== SYNC SESSION START ===")
+        
+        return try {
+            // 1. Validar sesión
+            val sessionStatus = validateSessionUseCase()
+            if (sessionStatus == SessionStatus.EXPIRED) {
+                Log.d("SyncDataWorker", "Sesión expirada. No se puede sincronizar.")
+                return Result.failure()
+            }
+            
+            var formsSynced = 0
+            var maintenanceSynced = 0
+            var totalErrors = 0
 
-        val sessionStatus = validateSessionUseCase()
-        if (sessionStatus == SessionStatus.EXPIRED) {
-            Log.d("SyncDataWorker", "Sesión expirada. No se puede sincronizar.")
-            return Result.failure()
-        }
-
-        try {
-            var didSyncSomething = false
-
-            // 1. FORMULARIOS
+            // 2. FORMULARIOS
             val pendingForms = getPendingFormsUseCase().first()
+            Log.d("SyncDataWorker", "Found ${pendingForms.size} pending forms to sync")
+            
             if (pendingForms.isNotEmpty()) {
-                Log.d("SyncDataWorker", "Sincronizando ${pendingForms.size} inspecciones pendientes...")
-                pendingForms.forEach { form -> syncFormUseCase(form) }
-                didSyncSomething = true
+                pendingForms.forEach { form ->
+                    try {
+                        val result = syncFormUseCase(form)
+                        if (result.isSuccess) {
+                            formsSynced++
+                            Log.d("SyncDataWorker", "✅ Form synced successfully: ${form.UUID}")
+                        } else {
+                            totalErrors++
+                            Log.e("SyncDataWorker", "❌ Form sync failed: ${form.UUID} - ${result.exceptionOrNull()?.message}")
+                        }
+                    } catch (e: Exception) {
+                        totalErrors++
+                        Log.e("SyncDataWorker", "❌ Exception syncing form ${form.UUID}", e)
+                    }
+                }
             }
 
-            // 2. MANTENIMIENTOS
+            // 3. MANTENIMIENTOS
             val pendingMaintenance = getPendingMaintenanceFormsUseCase().first()
+            Log.d("SyncDataWorker", "Found ${pendingMaintenance.size} pending maintenance forms to sync")
+            
             if (pendingMaintenance.isNotEmpty()) {
-                Log.d("SyncDataWorker", "Sincronizando ${pendingMaintenance.size} mantenimientos pendientes...")
-                pendingMaintenance.forEach { maintenance -> syncMaintenanceFormsUseCase(maintenance) }
-                didSyncSomething = true
+                pendingMaintenance.forEach { maintenance ->
+                    try {
+                        val result = syncMaintenanceFormsUseCase(maintenance)
+                        if (result.isSuccess) {
+                            maintenanceSynced++
+                            Log.d("SyncDataWorker", "✅ Maintenance synced successfully: ${maintenance.id}")
+                        } else {
+                            totalErrors++
+                            Log.e("SyncDataWorker", "❌ Maintenance sync failed: ${maintenance.id} - ${result.exceptionOrNull()?.message}")
+                        }
+                    } catch (e: Exception) {
+                        totalErrors++
+                        Log.e("SyncDataWorker", "❌ Exception syncing maintenance ${maintenance.id}", e)
+                    }
+                }
             }
 
-            // 3. IMÁGENES (solo después de formularios y mantenimientos)
-            // CAMBIADO: Usar KEEP para evitar trabajos duplicados si ya hay uno en ejecución
-            val imageWork = OneTimeWorkRequestBuilder<ImageSyncWorker>().build()
-            val enqueueResult = WorkManager.getInstance(applicationContext).enqueueUniqueWork(
-                "chained_image_sync",
-                ExistingWorkPolicy.KEEP, // Mantiene trabajo existente si ya está corriendo
-                imageWork
-            )
-            Log.d("SyncDataWorker", "Trabajo de sincronización de imágenes encolado (política KEEP).")
-            didSyncSomething = true
-
-            // 4. DATOS MAESTROS (solo si no había formularios ni mantenimientos ni imágenes pendientes)
-            if (!didSyncSomething) {
-                Log.d("SyncDataWorker", "No había formularios, mantenimientos ni imágenes. Sincronizando datos maestros...")
-                syncMachinesUseCase()
-                syncOilsUseCase()
-                Log.d("SyncDataWorker", "Datos maestros sincronizados.")
+            // 4. IMÁGENES (encolar una sola vez)
+            try {
+                val imageWork = OneTimeWorkRequestBuilder<ImageSyncWorker>().build()
+                WorkManager.getInstance(applicationContext).enqueueUniqueWork(
+                    "chained_image_sync",
+                    ExistingWorkPolicy.KEEP,
+                    imageWork
+                )
+                Log.d("SyncDataWorker", "Image sync worker enqueued (KEEP policy)")
+            } catch (e: Exception) {
+                Log.e("SyncDataWorker", "Failed to enqueue image sync worker", e)
             }
 
-            return Result.success()
+            // 5. DATOS MAESTROS (solo si no había otros datos pendientes)
+            if (pendingForms.isEmpty() && pendingMaintenance.isEmpty()) {
+                Log.d("SyncDataWorker", "No forms or maintenance pending. Syncing master data...")
+                try {
+                    syncMachinesUseCase()
+                    syncOilsUseCase()
+                    Log.d("SyncDataWorker", "✅ Master data synced successfully")
+                } catch (e: Exception) {
+                    Log.e("SyncDataWorker", "❌ Error syncing master data", e)
+                    totalErrors++
+                }
+            }
+
+            // Log summary
+            Log.d("SyncDataWorker", "=== SYNC SESSION COMPLETE ===")
+            Log.d("SyncDataWorker", "Forms synced: $formsSynced, Maintenance synced: $maintenanceSynced, Total errors: $totalErrors")
+            
+            // Return success if we processed anything, retry only on critical errors
+            return if (pendingForms.isNotEmpty() || pendingMaintenance.isNotEmpty()) {
+                if (totalErrors == 0) {
+                    Log.d("SyncDataWorker", "All sync operations completed successfully")
+                    Result.success()
+                } else {
+                    Log.w("SyncDataWorker", "Some sync operations failed, but session completed")
+                    Result.success() // Don't retry, let next periodic sync handle failures
+                }
+            } else {
+                Log.d("SyncDataWorker", "No data to sync, session completed")
+                Result.success()
+            }
 
         } catch (e: Exception) {
-            Log.e("SyncDataWorker", "Error durante la sincronización: ${e.message}", e)
-            return Result.retry()
+            Log.e("SyncDataWorker", "Critical error during sync session: ${e.message}", e)
+            return Result.retry() // Only retry on critical failures
         }
-        enqueueAgain(applicationContext)
-        return Result.success()
-    } catch (e: Exception) {
-        enqueueAgain(applicationContext)
-        return Result.retry()
-    }
-    }
-    private fun enqueueAgain(context: Context) {
-        val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
-
-        val request = OneTimeWorkRequestBuilder<SyncDataWorker>()
-            .setConstraints(constraints)
-            .build()
-
-        WorkManager.getInstance(context).enqueueUniqueWork(
-            "always_sync",
-            ExistingWorkPolicy.REPLACE,
-            request
-        )
     }
 }

@@ -17,8 +17,15 @@ import com.example.testusoandroidstudio_1_usochicamocha.data.local.entity.Mainte
 import com.example.testusoandroidstudio_1_usochicamocha.data.local.entity.OilEntity
 
 @Database(
-    entities = [FormEntity::class, MachineEntity::class, LogEntity::class, MaintenanceEntity::class, OilEntity::class, ImageEntity::class],
-    version = 1,
+    entities = [
+        FormEntity::class,
+        MachineEntity::class,
+        LogEntity::class,
+        MaintenanceEntity::class,
+        OilEntity::class,
+        ImageEntity::class
+    ],
+    version = 1, // Versión sin migración para evitar problemas
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {

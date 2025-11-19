@@ -121,7 +121,7 @@ fun FormScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             item {
-                MachineSelector(
+MachineSelector(
                     machines = uiState.machines,
                     selectedMachine = uiState.selectedMachine,
                     onMachineSelected = { viewModel.onMachineSelected(it) }
@@ -322,57 +322,39 @@ fun GreasingSection(
 fun MachineSelector(
     machines: List<Machine>,
     selectedMachine: Machine?,
-    onMachineSelected: (Machine) -> Unit
+    onMachineSelected: (Machine) -> Unit,
+    isEnabled: Boolean = true
 ) {
     var expanded by remember { mutableStateOf(false) }
     val displayText = selectedMachine?.let { "${it.name} - ${it.model} - ${it.internalIdentificationNumber}" } ?: "Seleccione una máquina"
 
-    // Test-friendly implementation using a simple dropdown menu instead of ExposedDropdownMenu
-    // This makes the dropdown items accessible to UI tests
-    Column {
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { if (isEnabled) expanded = !expanded }
+    ) {
         OutlinedTextField(
             value = displayText,
             onValueChange = {},
             readOnly = true,
             label = { Text("Máquina (*)", fontWeight = FontWeight.Bold, fontSize = 17.sp) },
-            trailingIcon = {
-                IconButton(onClick = { expanded = !expanded }) {
-                    Icon(
-                        imageVector = if (expanded) Icons.Default.KeyboardArrowLeft else Icons.Default.KeyboardArrowRight,
-                        contentDescription = if (expanded) "Collapse" else "Expand"
-                    )
-                }
-            },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
-                .fillMaxWidth()
-                .clickable { expanded = !expanded }
+                .menuAnchor()
+                .fillMaxWidth(),
+            enabled = isEnabled
         )
-
-        // Show dropdown items when expanded - this makes them accessible to tests
-        if (expanded) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, Color.LightGray, RoundedCornerShape(4.dp))
-                    .background(Color.White)
-            ) {
-                machines.forEach { machine ->
-                    val machineText = "${machine.name} - ${machine.model} - ${machine.internalIdentificationNumber}"
-                    Text(
-                        text = machineText,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                onMachineSelected(machine)
-                                expanded = false
-                            }
-                            .padding(16.dp),
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                    if (machine != machines.last()) {
-                        Divider()
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            machines.forEach { machine ->
+                DropdownMenuItem(
+                    text = { Text("${machine.name} - ${machine.model} - ${machine.internalIdentificationNumber}") },
+                    onClick = {
+                        onMachineSelected(machine)
+                        expanded = false
                     }
-                }
+                )
             }
         }
     }
@@ -386,44 +368,6 @@ fun MachineSelector(
             modifier = Modifier.padding(top = 4.dp)
         )
     }
-
-    /*
-    // Original implementation using ExposedDropdownMenu (commented out for testability)
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = !expanded }
-    ) {
-        OutlinedTextField(
-            value = displayText,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("Máquina (*)", fontWeight = FontWeight.Bold, fontSize = 17.sp) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .menuAnchor()
-                .fillMaxWidth()
-        )
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            machines.forEach { machine ->
-                DropdownMenuItem(
-                    text = {
-                        Column {
-                            Text(text = machine.name, style = MaterialTheme.typography.bodyLarge)
-                            Text(text = "Model: ${machine.model} - ID: ${machine.internalIdentificationNumber}", style = MaterialTheme.typography.bodySmall)
-                        }
-                    },
-                    onClick = {
-                        onMachineSelected(machine)
-                        expanded = false
-                    }
-                )
-            }
-        }
-    }
-    */
 }
 
 @Composable

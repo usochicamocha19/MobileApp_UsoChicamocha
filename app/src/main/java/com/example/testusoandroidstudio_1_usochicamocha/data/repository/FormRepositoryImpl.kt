@@ -2,6 +2,7 @@ package com.example.testusoandroidstudio_1_usochicamocha.data.repository
 
 import android.content.Context
 import android.net.Uri
+import android.util.Log
 import com.example.testusoandroidstudio_1_usochicamocha.data.local.dao.FormDao
 import com.example.testusoandroidstudio_1_usochicamocha.data.local.dao.ImageDao
 import com.example.testusoandroidstudio_1_usochicamocha.data.local.entity.ImageEntity
@@ -23,6 +24,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 
 class FormRepositoryImpl @Inject constructor(
@@ -31,6 +33,13 @@ class FormRepositoryImpl @Inject constructor(
     private val imageDao: ImageDao,
     private val apiService: ApiService
 ) : FormRepository {
+
+    companion object {
+        private const val TAG = "FormRepositoryImpl"
+        private val duplicateCounter = AtomicInteger(0)
+    }
+
+    fun getDuplicateCount(): Int = duplicateCounter.get()
 
     override fun getPendingFormsWithStatus(): Flow<List<PendingFormStatus>> {
         return formDao.getPendingFormsWithImageCount().map { list ->
@@ -66,27 +75,66 @@ class FormRepositoryImpl @Inject constructor(
         }
     }
 
+    /**
+     * MÉTODO DE SINCRONIZACIÓN CON DEDUPLICACIÓN BÁSICA
+     * Implementa lógica simplificada para prevenir formularios duplicados
+     * SIN usar tabla de tracking adicional
+     */
     override suspend fun syncForm(form: Form): Result<Unit> {
+        val workerId = "worker_${Thread.currentThread().id}"
+        
+        Log.d(TAG, "🔄 Starting sync for form: ${form.UUID} (Worker: $workerId)")
+        
         return try {
-            // Mark as syncing
-            formDao.markAsSyncing(form.UUID)
+            // 1. VERIFICAR SI YA ESTÁ SINCRONIZADO LOCALMENTE
+            val isAlreadySynced = formDao.isFormAlreadySynced(form.UUID)
+            if (isAlreadySynced == true) {
+                Log.d(TAG, "✅ Form ${form.UUID} already synced locally, skipping")
+                return Result.success(Unit)
+            }
+            
+            // Si el resultado es null, significa que no está sincronizado, continuar
+            if (isAlreadySynced == null) {
+                Log.d(TAG, "ℹ️ Form ${form.UUID} not synced yet, proceeding with sync")
+            }
 
+            // 2. INTENTAR OBTENER LOCK ATÓMICO BÁSICO
+            val lockResult = formDao.acquireFormLock(form.UUID)
+            if (lockResult == 0) {
+                Log.d(TAG, "🔒 Form ${form.UUID} is being synced by another process")
+                duplicateCounter.incrementAndGet()
+                return Result.success(Unit)
+            }
+
+            Log.d(TAG, "🔓 Lock acquired for form ${form.UUID}, proceeding with sync")
+
+            // 3. REALIZAR SINCRONIZACIÓN
             val formDto = form.toDto()
             val response = apiService.syncForm(formDto)
 
             if (response.isSuccessful && response.body() != null) {
                 val serverId = response.body()!!.id
                 formDao.markAsSynced(form.UUID, serverId)
+                
+                Log.d(TAG, "✅ Form ${form.UUID} synced successfully with serverId: $serverId")
                 Result.success(Unit)
             } else {
-                // Reset syncing flag on failure
+                // 4. MANEJAR FALLO
                 formDao.markAsNotSyncing(form.UUID)
+                
+                Log.e(TAG, "❌ Form ${form.UUID} sync failed: ${response.code()}")
                 Result.failure(Exception("Error del servidor al sincronizar formulario: ${response.code()}"))
             }
         } catch (e: Exception) {
-            // Reset syncing flag on exception
+            // 5. MANEJAR EXCEPCIÓN
             formDao.markAsNotSyncing(form.UUID)
+            
+            Log.e(TAG, "❌ Exception syncing form ${form.UUID}", e)
             Result.failure(e)
+        } finally {
+            // 6. SIEMPRE LIBERAR LOCK
+            formDao.markAsNotSyncing(form.UUID)
+            Log.d(TAG, "🔓 Lock released for form ${form.UUID}")
         }
     }
 
@@ -125,13 +173,20 @@ class FormRepositoryImpl @Inject constructor(
             if (response.isSuccessful) {
                 Result.success(Unit)
             } else {
-                Result.failure(Exception("Error del servidor al subir imagen: ${response.code()}"))
+                // Verificar si el error es "Duplicate image detected"
+                val errorBody = response.errorBody()?.string()
+                if (errorBody?.contains("Duplicate image detected") == true) {
+                    Log.d(TAG, "✅ Imagen duplicada detectada, tratando como éxito: $imageUri")
+                    Result.success(Unit) // Tratar como éxito si es imagen duplicada
+                } else {
+                    Log.e(TAG, "❌ Error del servidor al subir imagen: ${response.code()} - $errorBody")
+                    Result.failure(Exception("Error del servidor al subir imagen: ${response.code()}"))
+                }
             }
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
-
 
     override suspend fun markImageAsSynced(localId: Int) {
         imageDao.markAsSynced(localId)
@@ -176,4 +231,3 @@ class FormRepositoryImpl @Inject constructor(
         )
     }
 }
-
