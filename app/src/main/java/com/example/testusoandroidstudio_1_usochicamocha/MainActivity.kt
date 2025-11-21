@@ -90,8 +90,9 @@ class MainActivity : ComponentActivity() {
                             onNavigateToImprevisto = {
                                 navController.navigate("imprevisto")
                             },
-                            onNavigateToMantenimiento = {
-                                navController.navigate("mantenimiento")
+                            onNavigateToMantenimiento = { maintenanceId ->
+                                val route = if (maintenanceId != null) "mantenimiento?maintenanceId=$maintenanceId" else "mantenimiento"
+                                navController.navigate(route)
                             }
                         )
                     }
@@ -116,7 +117,15 @@ class MainActivity : ComponentActivity() {
                             }
                         )
                     }
-                    composable("mantenimiento") {
+                    composable(
+                        route = "mantenimiento?maintenanceId={maintenanceId}",
+                        arguments = listOf(
+                            androidx.navigation.navArgument("maintenanceId") {
+                                type = androidx.navigation.NavType.IntType
+                                defaultValue = -1 // Use -1 to indicate no ID
+                            }
+                        )
+                    ) {
                         MantenimientoScreen(
                             onNavigateBack = {
                                 navController.popBackStack()

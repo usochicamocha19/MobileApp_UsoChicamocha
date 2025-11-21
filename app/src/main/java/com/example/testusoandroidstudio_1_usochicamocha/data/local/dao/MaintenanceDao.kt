@@ -22,6 +22,12 @@ interface MaintenanceDao {
     @Query("UPDATE maintenance_forms SET isSyncing = 0 WHERE id = :id")
     suspend fun markAsNotSyncing(id: Int)
 
+    @Query("UPDATE maintenance_forms SET isSyncing = 0, syncError = :error WHERE id = :id")
+    suspend fun markAsSyncFailed(id: Int, error: String)
+
     @Query("DELETE FROM maintenance_forms WHERE id = :id")
     suspend fun deleteById(id: Int)
+
+    @Query("SELECT * FROM maintenance_forms WHERE id = :id")
+    suspend fun getMaintenanceById(id: Int): MaintenanceEntity?
 }

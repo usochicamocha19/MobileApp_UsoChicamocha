@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.*
@@ -40,7 +41,7 @@ fun MainScreen(
     onNavigateToForm: () -> Unit,
     onNavigateToLogs: () -> Unit,
     onNavigateToImprevisto: () -> Unit,
-    onNavigateToMantenimiento: () -> Unit
+    onNavigateToMantenimiento: (Int?) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -117,13 +118,14 @@ fun MainScreen(
             AvailableFormsCard(
                 onNavigateToForm = onNavigateToForm,
                 onNavigateToImprevisto = onNavigateToImprevisto,
-                onNavigateToMantenimiento = onNavigateToMantenimiento
+                onNavigateToMantenimiento = { onNavigateToMantenimiento(null) }
             )
 
             PendingMaintenanceCard(
                 pendingMaintenance = uiState.pendingMaintenanceForms,
                 isSyncing = uiState.isSyncingMaintenance,
-                onSyncClicked = { viewModel.onSyncMaintenanceClicked() }
+                onSyncClicked = { viewModel.onSyncMaintenanceClicked() },
+                onEditClicked = { id -> onNavigateToMantenimiento(id) }
             )
 
             PendingFormsCard(
@@ -279,7 +281,8 @@ fun AvailableFormsCard(
 fun PendingMaintenanceCard(
     pendingMaintenance: List<Maintenance>,
     isSyncing: Boolean,
-    onSyncClicked: () -> Unit
+    onSyncClicked: () -> Unit,
+    onEditClicked: (Int) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -313,7 +316,10 @@ fun PendingMaintenanceCard(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     pendingMaintenance.forEach { maintenance ->
-                        PendingMaintenanceItem(maintenance = maintenance)
+                        PendingMaintenanceItem(
+                            maintenance = maintenance,
+                            onEditClicked = onEditClicked
+                        )
                         Divider()
                     }
                 }
@@ -323,14 +329,55 @@ fun PendingMaintenanceCard(
 }
 
 @Composable
-fun PendingMaintenanceItem(maintenance: Maintenance) {
+fun PendingMaintenanceItem(
+    maintenance: Maintenance,
+    onEditClicked: (Int) -> Unit
+) {
     val sdf = SimpleDateFormat("HH:mm - dd/MM/yyyy", Locale.getDefault())
     val formattedDate = sdf.format(Date(maintenance.dateTime))
-    Column(
-        modifier = Modifier.fillMaxWidth()
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Text("Cambio de aceite (${maintenance.type})", fontWeight = FontWeight.Bold)
-        Text(formattedDate, style = MaterialTheme.typography.bodySmall)
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Cambio de aceite (${maintenance.type})", fontWeight = FontWeight.Bold)
+                    Text(formattedDate, style = MaterialTheme.typography.bodySmall)
+                }
+                Button(
+                    onClick = { onEditClicked(maintenance.id) },
+                    modifier = Modifier.padding(start = 8.dp)
+                ) {
+                    Text("EDITAR")
+                }
+            }
+
+            if (maintenance.syncError != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(verticalAlignment = Alignment.Top) {
+                    Icon(
+                        Icons.Default.Error,
+                        contentDescription = "Error",
+                        tint = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        "Error: ${maintenance.syncError}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
     }
 }
 

@@ -9,4 +9,5 @@ interface MaintenanceRepository {
 
     suspend fun syncMaintenanceForm(maintenance: Maintenance): Result<Unit>
     suspend fun deleteMaintenanceForm(id: Int): Result<Unit>
+    suspend fun getMaintenanceById(id: Int): Maintenance?
 }

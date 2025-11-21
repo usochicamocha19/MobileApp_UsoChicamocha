@@ -25,7 +25,7 @@ import com.example.testusoandroidstudio_1_usochicamocha.data.local.entity.OilEnt
         OilEntity::class,
         ImageEntity::class
     ],
-    version = 1, // Versión sin migración para evitar problemas
+    version = 2,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {

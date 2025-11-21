@@ -16,7 +16,8 @@ data class MaintenanceEntity(
     val averageHoursChange: Int,
     val type: String, // "motor" o "hydraulic"
     val isSynced: Boolean,
-    val isSyncing: Boolean = false
+    val isSyncing: Boolean = false,
+    val syncError: String? = null
 )
 
 fun MaintenanceEntity.toDomain(): Maintenance {
@@ -31,6 +32,7 @@ fun MaintenanceEntity.toDomain(): Maintenance {
         averageHoursChange = this.averageHoursChange,
         type = this.type,
         isSynced = this.isSynced,
-        isSyncing = this.isSyncing
+        isSyncing = this.isSyncing,
+        syncError = this.syncError
     )
 }

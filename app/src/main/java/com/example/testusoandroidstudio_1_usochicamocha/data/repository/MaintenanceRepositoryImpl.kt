@@ -37,7 +37,6 @@ class MaintenanceRepositoryImpl @Inject constructor(
             // Mark as syncing
             maintenanceDao.markAsSyncing(maintenance.id)
 
-            // --- CAMBIO: Llamamos a la nueva función de conversión ---
             val request = maintenance.toOilChangeRequest()
             val response = when (maintenance.type) {
                 "motor" -> apiService.syncMotorOilChange(request)
@@ -51,8 +50,19 @@ class MaintenanceRepositoryImpl @Inject constructor(
             if (response.isSuccessful) {
                 Result.success(Unit)
             } else {
-                maintenanceDao.markAsNotSyncing(maintenance.id)
-                Result.failure(Exception("Error de API: ${response.code()} - ${response.message()}"))
+                val errorBody = response.errorBody()?.string()
+                val errorMessage = try {
+                    if (!errorBody.isNullOrEmpty()) {
+                        org.json.JSONObject(errorBody).optString("message", errorBody)
+                    } else {
+                        "Error ${response.code()}: ${response.message()}"
+                    }
+                } catch (e: Exception) {
+                    errorBody ?: "Error ${response.code()}: ${response.message()}"
+                }
+
+                maintenanceDao.markAsSyncFailed(maintenance.id, errorMessage)
+                Result.failure(Exception(errorMessage))
             }
         } catch (e: Exception) {
             maintenanceDao.markAsNotSyncing(maintenance.id)
@@ -67,5 +77,9 @@ class MaintenanceRepositoryImpl @Inject constructor(
         } catch(e: Exception) {
             Result.failure(e)
         }
+    }
+
+    override suspend fun getMaintenanceById(id: Int): Maintenance? {
+        return maintenanceDao.getMaintenanceById(id)?.toDomain()
     }
 }

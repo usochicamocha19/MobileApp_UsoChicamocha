@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,8 +23,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.testusoandroidstudio_1_usochicamocha.domain.model.Machine
+import com.example.testusoandroidstudio_1_usochicamocha.domain.model.Maintenance
 import com.example.testusoandroidstudio_1_usochicamocha.domain.model.Oil
 import com.example.testusoandroidstudio_1_usochicamocha.ui.theme.AppUsoChicamochaTheme
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -103,15 +108,20 @@ fun MantenimientoScreen(
                     enabled = uiState.selectedMachine != null &&
                             uiState.maintenanceType != null &&
                             uiState.selectedOil != null &&
+                            uiState.quantity.toDoubleOrNull() != null && // Validar que sea un número
                             !uiState.isLoading,
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     if (uiState.isLoading) {
                         CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary)
                     } else {
-                        Text("GUARDAR", fontSize = 18.sp)
+                        Text(if (uiState.editingFormId != null) "ACTUALIZAR" else "GUARDAR", fontSize = 18.sp)
                     }
                 }
+            }
+
+            item {
+                PendingMaintenanceList(forms = uiState.pendingForms)
             }
         }
     }
@@ -318,6 +328,59 @@ fun OilSelector(
                         expanded = false
                     }
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun PendingMaintenanceList(forms: List<Maintenance>) {
+    if (forms.isNotEmpty()) {
+        Text(
+            "Pendientes de Sincronización / Errores",
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp),
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        forms.forEach { form ->
+            PendingMaintenanceItem(form)
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+    }
+}
+
+@Composable
+fun PendingMaintenanceItem(form: Maintenance) {
+    val cardColor = if (form.syncError != null) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant
+    val contentColor = if (form.syncError != null) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurfaceVariant
+
+    Card(
+        colors = CardDefaults.cardColors(containerColor = cardColor),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                "Máquina ID: ${form.machineId} - ${form.type.uppercase()}",
+                style = MaterialTheme.typography.titleSmall,
+                color = contentColor
+            )
+            val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+            Text(
+                "Fecha: ${dateFormat.format(Date(form.dateTime))}",
+                style = MaterialTheme.typography.bodySmall,
+                color = contentColor
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (form.isSyncing) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp, color = contentColor)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Sincronizando...", style = MaterialTheme.typography.bodySmall, color = contentColor)
+                }
+            } else {
+                Text("Pendiente de envío", style = MaterialTheme.typography.bodySmall, color = contentColor)
             }
         }
     }
