@@ -3,14 +3,7 @@ package com.example.testusoandroidstudio_1_usochicamocha.ui.mantenimiento
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-// AÑADIDO: Importaciones de WorkManager y los Workers
-import androidx.work.Constraints
-import androidx.work.ExistingWorkPolicy
-import androidx.work.NetworkType
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
-import com.example.testusoandroidstudio_1_usochicamocha.data.workers.ImageSyncWorker
-import com.example.testusoandroidstudio_1_usochicamocha.data.workers.SyncDataWorker
+import com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.LocalSyncCoordinator
 import com.example.testusoandroidstudio_1_usochicamocha.domain.model.Machine
 import com.example.testusoandroidstudio_1_usochicamocha.domain.model.Maintenance
 import com.example.testusoandroidstudio_1_usochicamocha.domain.model.Oil
@@ -35,8 +28,7 @@ class MantenimientoViewModel @Inject constructor(
     private val getLocalOilsUseCase: GetLocalOilsUseCase,
     private val getPendingMaintenanceFormsUseCase: GetPendingMaintenanceFormsUseCase,
     private val getMaintenanceByIdUseCase: com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.maintenance.GetMaintenanceByIdUseCase,
-    // AÑADIDO: Inyectamos WorkManager
-    private val workManager: WorkManager,
+    private val localSyncCoordinator: com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.LocalSyncCoordinator,
     private val savedStateHandle: androidx.lifecycle.SavedStateHandle
 ) : ViewModel() {
 
@@ -214,8 +206,10 @@ class MantenimientoViewModel @Inject constructor(
             val result = saveMaintenanceFormUseCase(form)
 
             result.onSuccess {
-                // AÑADIDO: Iniciar el proceso de sincronización en segundo plano
-                triggerImmediateSync()
+                // 2. Usar el coordinador para iniciar la sincronización
+                localSyncCoordinator.coordinateSync(
+                    LocalSyncCoordinator.SyncTrigger.MaintenanceSaved(state.maintenanceType ?: "Unknown")
+                )
 
                 // Esto solo limpia los campos del formulario, pero mantiene
                 // las listas de máquinas y aceites ya cargadas.
@@ -243,36 +237,8 @@ class MantenimientoViewModel @Inject constructor(
         }
     }
 
-    // AÑADIDO: Nueva función para encolar el trabajo de sincronización
-    private fun triggerImmediateSync() {
-        val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
-
-        // El formulario de mantenimiento es 'data', por lo que encolamos el SyncDataWorker.
-        val dataSyncRequest = OneTimeWorkRequestBuilder<SyncDataWorker>()
-            .setConstraints(constraints)
-            .build()
-
-        // Aunque este formulario no maneja imágenes, es buena práctica encolar ambos
-        // por si quedaron imágenes de otros formularios pendientes de sincronizar.
-        val imageSyncRequest = OneTimeWorkRequestBuilder<ImageSyncWorker>()
-            .setConstraints(constraints)
-            .build()
-
-        workManager.enqueueUniqueWork(
-            "immediate_data_sync_on_maintenance_save",
-            ExistingWorkPolicy.REPLACE,
-            dataSyncRequest
-        )
-        workManager.enqueueUniqueWork(
-            "immediate_image_sync_on_maintenance_save",
-            ExistingWorkPolicy.REPLACE,
-            imageSyncRequest
-        )
-
-        Log.d("MantenimientoViewModel", "Trabajos de sincronización encolados tras guardar mantenimiento.")
-    }
+    // La función triggerImmediateSync ya no es necesaria
+    // La eliminamos para limpiar.
 
 
     fun onSubmissionSuccessHandled() {

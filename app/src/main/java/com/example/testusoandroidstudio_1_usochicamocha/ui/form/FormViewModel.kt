@@ -8,16 +8,10 @@ import androidx.annotation.RequiresApi
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 // AÑADIDO: Importaciones necesarias para WorkManager
-import androidx.work.Constraints
-import androidx.work.ExistingWorkPolicy
-import androidx.work.NetworkType
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
 import com.example.testusoandroidstudio_1_usochicamocha.data.local.TokenManager
 // AÑADIDO: Importa tus workers
-import com.example.testusoandroidstudio_1_usochicamocha.data.workers.ImageSyncWorker
-import com.example.testusoandroidstudio_1_usochicamocha.data.workers.SyncDataWorker
 import com.example.testusoandroidstudio_1_usochicamocha.domain.model.Form
+import com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.LocalSyncCoordinator
 import com.example.testusoandroidstudio_1_usochicamocha.domain.model.Machine
 import com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.form.SaveFormUseCase
 import com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.machine.GetLocalMachinesUseCase
@@ -69,8 +63,7 @@ class FormViewModel @Inject constructor(
     private val saveFormUseCase: SaveFormUseCase,
     private val getLocalMachinesUseCase: GetLocalMachinesUseCase,
     private val tokenManager: TokenManager,
-    // AÑADIDO: Inyecta la instancia de WorkManager
-    private val workManager: WorkManager
+    private val localSyncCoordinator: LocalSyncCoordinator
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(FormUiState())
@@ -277,45 +270,19 @@ class FormViewModel @Inject constructor(
             // 1. Guardar en la base de datos local
             saveFormUseCase(form, imageUrisAsString)
 
-            // AÑADIDO: 2. Después de guardar, encolar los workers para sincronizar
-            triggerImmediateSync()
+            // 2. Usar el coordinador para iniciar la sincronización
+            localSyncCoordinator.coordinateSync(
+                LocalSyncCoordinator.SyncTrigger.FormSaved("Inspection")
+            )
 
             // 3. Actualizar la UI para indicar que se completó
             _uiState.update { it.copy(saveCompleted = true) }
         }
     }
 
-    // AÑADIDO: Nueva función para encolar los trabajos de sincronización
-    private fun triggerImmediateSync() {
-        val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
-
-        // Petición para el worker de DATOS (el formulario)
-        val dataSyncRequest = OneTimeWorkRequestBuilder<SyncDataWorker>()
-            .setConstraints(constraints)
-            .build()
-
-        // Petición para el worker de IMÁGENES
-        val imageSyncRequest = OneTimeWorkRequestBuilder<ImageSyncWorker>()
-            .setConstraints(constraints)
-            .build()
-
-        // Encolamos ambos trabajos. Usamos REPLACE para que si el usuario guarda
-        // muy rápido varias veces, solo la última versión se sincronice.
-        workManager.enqueueUniqueWork(
-            "immediate_data_sync_on_save",
-            ExistingWorkPolicy.REPLACE,
-            dataSyncRequest
-        )
-        workManager.enqueueUniqueWork(
-            "immediate_image_sync_on_save",
-            ExistingWorkPolicy.REPLACE,
-            imageSyncRequest
-        )
-
-        Log.d("FormViewModel", "Trabajos de sincronización de datos e imágenes encolados.")
-    }
+    // La función triggerImmediateSync ya no es necesaria porque usamos el coordinador
+    // pero si se mantiene por compatibilidad, debería estar vacía o delegar.
+    // La eliminamos para limpiar.
 
     fun onNavigationDone() {
         _uiState.update { it.copy(saveCompleted = false) }

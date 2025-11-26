@@ -42,7 +42,7 @@ object AppModule {
 
     //private const val BASE_URL = "https://pdxs8r4k-8080.use2.devtunnels.ms/"+"api/"
     //private const val BASE_URL = "https://usochimochabackend.onrender.com/"+"api/"
-    private const val BASE_URL = "http://145.223.121.6:8080/"+"api/"
+    private const val BASE_URL = "https://server.usochicamocha.co/"+"api/"
     @Provides
     @Singleton
     fun provideWorkManager(@ApplicationContext context: Context): WorkManager {

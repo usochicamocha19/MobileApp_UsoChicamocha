@@ -8,27 +8,29 @@ import com.example.testusoandroidstudio_1_usochicamocha.data.workers.SyncDataWor
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * Coordinador de sincronización centralizado.
- * Evita duplicados y coordina todos los workers de sincronización.
- */
 @Singleton
 class LocalSyncCoordinator @Inject constructor(
     @ApplicationContext private val context: Context,
     private val workManager: WorkManager
 ) {
-    
+
+    // Scope interno para monitorear trabajos sin bloquear
+    private val coordinatorScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO + kotlinx.coroutines.SupervisorJob())
+
     companion object {
         private const val TAG = "LocalSyncCoordinator"
         private const val COORDINATED_SYNC_WORK = "coordinated_sync_work"
         private const val CLEANUP_WORK = "periodic_cleanup_work"
-        private const val SYNC_TIMEOUT_MS = 60000L // 1 minuto timeout
+        private const val SYNC_TIMEOUT_MS = 300000L // 5 minutos timeout - más tiempo para operaciones grandes
     }
     
     private val activeSyncOperations = ConcurrentHashMap<String, Long>()
@@ -36,6 +38,8 @@ class LocalSyncCoordinator @Inject constructor(
     val syncStatus: StateFlow<SyncStatus> = _syncStatus
     
     sealed class SyncTrigger {
+        abstract fun getWorkName(): String
+
         data class FormSaved(val formType: String) : SyncTrigger() {
             override fun getWorkName(): String = "form_save_sync"
         }
@@ -51,18 +55,18 @@ class LocalSyncCoordinator @Inject constructor(
         data class AppStartSync(val reason: String) : SyncTrigger() {
             override fun getWorkName(): String = "app_start_sync"
         }
-        
-        abstract fun getWorkName(): String
     }
-    
+
     enum class SyncType {
         ALL_DATA,
         FORMS_ONLY,
         MAINTENANCE_ONLY,
         IMAGES_ONLY,
-        MASTER_DATA
+        MASTER_DATA,
+        MACHINES_ONLY,
+        OILS_ONLY
     }
-    
+
     enum class SyncStatus {
         IDLE,
         COORDINATING,
@@ -76,53 +80,156 @@ class LocalSyncCoordinator @Inject constructor(
      */
     suspend fun coordinateSync(trigger: SyncTrigger): Result<Unit> {
         val workName = trigger.getWorkName()
-        val operationId = "coord_${workName}_${System.currentTimeMillis()}"
+        val currentTime = System.currentTimeMillis()
         
         return try {
             Log.d(TAG, "🎯 Coordinating sync triggered: $trigger")
             
-            // 1. Verificar si hay un work con el mismo nombre ya en progreso
-            val isWorkRunning = runBlocking {
-                val existingWork = workManager.getWorkInfosForUniqueWork(workName).await()
-                existingWork.any { it.state == WorkInfo.State.RUNNING || it.state == WorkInfo.State.ENQUEUED }
+            // 1. Verificar y limpiar trabajos bloqueados o muy antiguos
+            cleanupStuckWork(workName)
+            
+            // 2. Verificar si hay un work con el mismo nombre ya en progreso
+            val existingWorkInfos = workManager.getWorkInfosForUniqueWork(workName).await()
+            val runningWork = existingWorkInfos.find {
+                it.state == WorkInfo.State.RUNNING || it.state == WorkInfo.State.ENQUEUED
             }
             
-            if (isWorkRunning) {
-                Log.d(TAG, "⏭️  Work $workName already running, skipping")
+            if (runningWork != null) {
+                Log.d(TAG, "⏭️  Work $workName already running (id: ${runningWork.id}), attaching monitor")
+                // Si ya está corriendo, asegurar que el estado refleje eso y monitorear
+                if (_syncStatus.value == SyncStatus.IDLE) {
+                    _syncStatus.value = SyncStatus.SYNCING
+                }
+                // Monitor the existing work so the UI doesn't freeze
+                monitorWorkStatus(runningWork.id)
                 return Result.success(Unit)
             }
             
-            // 2. Marcar operación como activa en memoria
-            activeSyncOperations[workName] = System.currentTimeMillis()
+            // 3. Marcar operación como activa en memoria
+            activeSyncOperations[workName] = currentTime
             _syncStatus.value = SyncStatus.COORDINATING
             
-            // 3. Crear constraints para el work
+            // 4. Crear constraints para el work
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .setRequiresBatteryNotLow(true)
                 .build()
             
-            // 4. Crear el work request apropiado
+            // 5. Crear el work request apropiado
             val workRequest = createWorkRequestForTrigger(trigger, constraints)
             
-            // 5. Encolar con nombre único
+            // 6. Encolar con nombre único usando REPLACE para sobrescribir trabajos anteriores
             workManager.enqueueUniqueWork(
                 workName,
-                ExistingWorkPolicy.REPLACE, // Reemplazar si existe uno anterior completado
+                ExistingWorkPolicy.REPLACE,
                 workRequest
             )
             
-            Log.d(TAG, "✅ Coordinated sync enqueued: $workName")
+            Log.d(TAG, "✅ Coordinated sync enqueued: $workName with id: ${workRequest.id}")
             _syncStatus.value = SyncStatus.SYNCING
+            
+            // 7. Monitorear el trabajo para resetear el estado cuando termine
+            monitorWorkStatus(workRequest.id)
+            
             Result.success(Unit)
             
         } catch (e: Exception) {
-            Log.e(TAG, "❌ Error coordinating sync", e)
+            Log.e(TAG, "❌ Error coordinating sync for $workName", e)
             _syncStatus.value = SyncStatus.ERROR
+            // Resetear el estado después de un error
+            coordinatorScope.launch {
+                kotlinx.coroutines.delay(3000)
+                _syncStatus.value = SyncStatus.IDLE
+            }
             Result.failure(e)
         } finally {
-            // Limpiar de memoria después de un tiempo
-            activeSyncOperations.remove(trigger.getWorkName())
+            activeSyncOperations.remove(workName)
+        }
+    }
+    
+    /**
+     * Limpia trabajos que puedan estar bloqueados
+     */
+    private suspend fun cleanupStuckWork(workName: String) {
+        try {
+            val existingWorkInfos = workManager.getWorkInfosForUniqueWork(workName).await()
+            val stuckWork = existingWorkInfos.find { workInfo ->
+                workInfo.state == WorkInfo.State.ENQUEUED
+            }
+            
+            if (stuckWork != null) {
+                Log.d(TAG, "🧹 Cancelling stuck work: $workName")
+                workManager.cancelWorkById(stuckWork.id)
+                kotlinx.coroutines.delay(1000) // Dar tiempo para la cancelación
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error cleaning up stuck work for $workName", e)
+        }
+    }
+
+    private fun monitorWorkStatus(workId: java.util.UUID) {
+        coordinatorScope.launch {
+            try {
+                Log.d(TAG, "🔍 Starting to monitor work: $workId")
+                // CRITICAL FIX: Usar un timeout más largo y manejo robusto de estados
+                kotlinx.coroutines.withTimeout(SYNC_TIMEOUT_MS) {
+                    workManager.getWorkInfoByIdFlow(workId).collect { workInfo ->
+                        if (workInfo == null) {
+                            Log.w(TAG, "⚠️ WorkInfo is null for workId: $workId")
+                            return@collect
+                        }
+                        
+                        Log.d(TAG, "📊 Work $workId state: ${workInfo.state}")
+                        
+                        when (workInfo.state) {
+                            WorkInfo.State.SUCCEEDED -> {
+                                Log.d(TAG, "🏁 Work $workId completed successfully")
+                                resetSyncStateAfterDelay("Work completed successfully")
+                                throw java.util.concurrent.CancellationException("Work finished")
+                            }
+                            WorkInfo.State.FAILED -> {
+                                val failureReason = workInfo.outputData.getString("FAILURE_REASON") ?: "Unknown error"
+                                Log.e(TAG, "🏁 Work $workId failed. Reason: $failureReason")
+                                resetSyncStateAfterDelay("Work failed")
+                                throw java.util.concurrent.CancellationException("Work finished")
+                            }
+                            WorkInfo.State.CANCELLED -> {
+                                Log.w(TAG, "🏁 Work $workId was cancelled")
+                                resetSyncStateAfterDelay("Work cancelled")
+                                throw java.util.concurrent.CancellationException("Work finished")
+                            }
+                            WorkInfo.State.RUNNING -> {
+                                Log.d(TAG, "🔄 Work $workId is currently running")
+                                _syncStatus.value = SyncStatus.SYNCING
+                            }
+                            WorkInfo.State.ENQUEUED -> {
+                                Log.d(TAG, "⏳ Work $workId is enqueued")
+                                _syncStatus.value = SyncStatus.COORDINATING
+                            }
+                            WorkInfo.State.BLOCKED -> {
+                                Log.w(TAG, "⛔ Work $workId is blocked")
+                                _syncStatus.value = SyncStatus.COORDINATING
+                            }
+                        }
+                    }
+                }
+            } catch (e: java.util.concurrent.CancellationException) {
+                Log.d(TAG, "✅ Monitor for work $workId cancelled normally")
+            } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
+                Log.w(TAG, "⚠️ Sync monitoring timed out for work $workId after ${SYNC_TIMEOUT_MS}ms")
+                _syncStatus.value = SyncStatus.IDLE // Reset UI after timeout
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ Error monitoring work $workId", e)
+                _syncStatus.value = SyncStatus.IDLE // Fallback safe
+            }
+        }
+    }
+    
+    private fun resetSyncStateAfterDelay(reason: String) {
+        coordinatorScope.launch {
+            Log.d(TAG, "🔄 Resetting sync state after delay. Reason: $reason")
+            kotlinx.coroutines.delay(2000) // Dar tiempo para que la UI procese el resultado
+            _syncStatus.value = SyncStatus.IDLE
         }
     }
     
@@ -170,7 +277,6 @@ class LocalSyncCoordinator @Inject constructor(
             
             Log.d(TAG, "🧹 Immediate cleanup enqueued")
             Result.success(Unit)
-            
         } catch (e: Exception) {
             Log.e(TAG, "❌ Error scheduling cleanup", e)
             Result.failure(e)
@@ -183,7 +289,18 @@ class LocalSyncCoordinator @Inject constructor(
     fun getCurrentSyncStatus(): SyncStatus {
         return _syncStatus.value
     }
-    
+
+    /**
+     * Observa el estado de un trigger específico
+     */
+    fun observeSyncTrigger(trigger: SyncTrigger): Flow<Boolean> {
+        return workManager.getWorkInfosForUniqueWorkFlow(trigger.getWorkName())
+            .map { workInfos ->
+                workInfos.any { it.state == WorkInfo.State.RUNNING || it.state == WorkInfo.State.ENQUEUED }
+            }
+            .distinctUntilChanged()
+    }
+
     /**
      * Cancela todas las operaciones de sincronización activas
      */
@@ -193,12 +310,19 @@ class LocalSyncCoordinator @Inject constructor(
         _syncStatus.value = SyncStatus.IDLE
         Log.d(TAG, "🚫 All sync operations cancelled")
     }
-    
+
     private fun createWorkRequestForTrigger(trigger: SyncTrigger, constraints: Constraints): OneTimeWorkRequest {
         return when (trigger) {
+            is SyncTrigger.ManualSync -> {
+                val inputData = workDataOf("SYNC_TYPE" to trigger.syncType.name)
+                OneTimeWorkRequestBuilder<SyncDataWorker>()
+                    .setConstraints(constraints)
+                    .setInputData(inputData)
+                    .addTag(COORDINATED_SYNC_WORK)
+                    .build()
+            }
             is SyncTrigger.FormSaved,
             is SyncTrigger.MaintenanceSaved,
-            is SyncTrigger.ManualSync,
             is SyncTrigger.AppStartSync,
             is SyncTrigger.PeriodicSync -> {
                 OneTimeWorkRequestBuilder<SyncDataWorker>()

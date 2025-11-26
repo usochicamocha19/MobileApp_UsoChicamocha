@@ -1,11 +1,13 @@
 package com.example.testusoandroidstudio_1_usochicamocha.ui.main
 
+import android.util.Log
 import android.widget.Toast
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.testusoandroidstudio_1_usochicamocha.domain.model.Form
 import com.example.testusoandroidstudio_1_usochicamocha.domain.model.Maintenance
 import com.example.testusoandroidstudio_1_usochicamocha.domain.model.PendingFormStatus
+import com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.LocalSyncCoordinator
 import com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.auth.LogoutUseCase
 import com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.form.GetPendingFormsUseCase
 import com.example.testusoandroidstudio_1_usochicamocha.domain.usecase.form.GetPendingFormsWithStatusUseCase
@@ -40,13 +42,10 @@ data class MainUiState(
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val logoutUseCase: LogoutUseCase,
-    private val getPendingFormsWithStatusUseCase: GetPendingFormsWithStatusUseCase, // Modificado
-    private val syncMachinesUseCase: SyncMachinesUseCase,
-    private val syncFormUseCase: SyncFormUseCase,
+    private val getPendingFormsWithStatusUseCase: GetPendingFormsWithStatusUseCase,
     private val getPendingMaintenanceFormsUseCase: GetPendingMaintenanceFormsUseCase,
-    private val syncMaintenanceFormsUseCase: SyncMaintenanceFormsUseCase,
-    private val syncOilsUseCase: SyncOilsUseCase,
-    private val triggerImageSyncUseCase: TriggerImageSyncUseCase // Añadido
+    private val localSyncCoordinator: LocalSyncCoordinator, // Inyectamos el coordinador
+    private val triggerImageSyncUseCase: TriggerImageSyncUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MainUiState())
@@ -55,10 +54,10 @@ class MainViewModel @Inject constructor(
     init {
         observePendingForms()
         observePendingMaintenanceForms()
+        observeSyncStatuses()
     }
 
     private fun observePendingForms() {
-        // Modificado para usar el nuevo UseCase que trae el estado completo
         getPendingFormsWithStatusUseCase().onEach { formsWithStatus ->
             _uiState.update { it.copy(pendingForms = formsWithStatus) }
         }.launchIn(viewModelScope)
@@ -71,13 +70,44 @@ class MainViewModel @Inject constructor(
     }
 
     /**
-     * AÑADIDO: Nueva función que se llamará desde la UI
-     * para forzar la sincronización de imágenes.
+     * Observa los estados de sincronización de manera independiente
      */
+    private fun observeSyncStatuses() {
+        // Machines
+        localSyncCoordinator.observeSyncTrigger(
+            LocalSyncCoordinator.SyncTrigger.ManualSync(LocalSyncCoordinator.SyncType.MACHINES_ONLY)
+        ).onEach { isRunning ->
+            _uiState.update { it.copy(isSyncingMachines = isRunning) }
+        }.launchIn(viewModelScope)
+
+        // Oils
+        localSyncCoordinator.observeSyncTrigger(
+            LocalSyncCoordinator.SyncTrigger.ManualSync(LocalSyncCoordinator.SyncType.OILS_ONLY)
+        ).onEach { isRunning ->
+            _uiState.update { it.copy(isSyncingOils = isRunning) }
+        }.launchIn(viewModelScope)
+
+        // Forms
+        localSyncCoordinator.observeSyncTrigger(
+            LocalSyncCoordinator.SyncTrigger.ManualSync(LocalSyncCoordinator.SyncType.FORMS_ONLY)
+        ).onEach { isRunning ->
+            _uiState.update { it.copy(isSyncingForms = isRunning) }
+        }.launchIn(viewModelScope)
+
+        // Maintenance
+        localSyncCoordinator.observeSyncTrigger(
+            LocalSyncCoordinator.SyncTrigger.ManualSync(LocalSyncCoordinator.SyncType.MAINTENANCE_ONLY)
+        ).onEach { isRunning ->
+            _uiState.update { it.copy(isSyncingMaintenance = isRunning) }
+        }.launchIn(viewModelScope)
+    }
+
     fun onSyncImagesClicked() {
         viewModelScope.launch {
+            // Usamos el coordinador para imágenes también si es posible, 
+            // o mantenemos el caso de uso directo si es específico para imágenes
+            // Por ahora mantenemos el trigger directo pero idealmente debería ir al coordinador
             triggerImageSyncUseCase()
-            // Mostramos un mensaje temporal al usuario para darle feedback
             _uiState.update { it.copy(syncImagesMessage = "Sincronización de imágenes iniciada en segundo plano.") }
         }
     }
@@ -85,7 +115,6 @@ class MainViewModel @Inject constructor(
     fun clearSyncImagesMessage() {
         _uiState.update { it.copy(syncImagesMessage = null) }
     }
-
 
     fun onLogoutClick() {
         _uiState.update { it.copy(showLogoutDialog = true) }
@@ -106,12 +135,26 @@ class MainViewModel @Inject constructor(
         _uiState.update { it.copy(logoutCompleted = false) }
     }
 
+    // --- NUEVA LÓGICA USANDO COORDINATOR ---
+
     fun onSyncMachinesClicked() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isSyncingMachines = true, syncMachinesMessage = null) }
-            val result = syncMachinesUseCase()
-            val message = if (result.isSuccess) "Máquinas sincronizadas con éxito" else result.exceptionOrNull()?.message ?: "Error desconocido"
-            _uiState.update { it.copy(isSyncingMachines = false, syncMachinesMessage = message) }
+            _uiState.update { it.copy(syncMachinesMessage = null) }
+            
+            Log.d("MainViewModel", "🔄 Starting machines sync")
+            
+            // Solicitamos sincronización de datos maestros (solo máquinas)
+            val result = localSyncCoordinator.coordinateSync(
+                LocalSyncCoordinator.SyncTrigger.ManualSync(LocalSyncCoordinator.SyncType.MACHINES_ONLY)
+            )
+            
+            if (result.isSuccess) {
+                _uiState.update { it.copy(syncMachinesMessage = "Sincronización de máquinas iniciada en segundo plano") }
+                Log.d("MainViewModel", "✅ Machines sync coordinated successfully")
+            } else {
+                _uiState.update { it.copy(syncMachinesMessage = "No se pudo iniciar la sincronización") }
+                Log.e("MainViewModel", "❌ Failed to coordinate machines sync", result.exceptionOrNull())
+            }
         }
     }
 
@@ -121,28 +164,28 @@ class MainViewModel @Inject constructor(
 
     fun onSyncFormsClicked() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isSyncingForms = true, syncFormsMessage = null) }
-
-            // Obtenemos solo los formularios de texto que no están sincronizados
-            val pendingTextForms = _uiState.value.pendingForms
-                .filter { !it.form.isSynced }
-                .map { it.form }
-
+            _uiState.update { it.copy(syncFormsMessage = null) }
+            
+            val pendingTextForms = _uiState.value.pendingForms.filter { !it.form.isSynced }
             if (pendingTextForms.isEmpty()) {
-                _uiState.update { it.copy(isSyncingForms = false, syncFormsMessage = "No hay inspecciones para sincronizar.") }
+                _uiState.update { it.copy(syncFormsMessage = "No hay inspecciones para sincronizar.") }
                 return@launch
             }
 
-            var successCount = 0
-            var errorCount = 0
+            Log.d("MainViewModel", "🔄 Starting forms sync with ${pendingTextForms.size} pending forms")
+            
+            // Solicitamos sincronización de formularios
+            val result = localSyncCoordinator.coordinateSync(
+                LocalSyncCoordinator.SyncTrigger.ManualSync(LocalSyncCoordinator.SyncType.FORMS_ONLY)
+            )
 
-            pendingTextForms.forEach { form ->
-                val result = syncFormUseCase(form)
-                if (result.isSuccess) successCount++ else errorCount++
+            if (result.isSuccess) {
+                _uiState.update { it.copy(syncFormsMessage = "Sincronización de formularios iniciada en segundo plano") }
+                Log.d("MainViewModel", "✅ Forms sync coordinated successfully")
+            } else {
+                _uiState.update { it.copy(syncFormsMessage = "Error al iniciar sincronización: ${result.exceptionOrNull()?.message}") }
+                Log.e("MainViewModel", "❌ Failed to coordinate forms sync", result.exceptionOrNull())
             }
-
-            val message = "Sincronización de inspecciones completa. Éxitos: $successCount, Fallos: $errorCount."
-            _uiState.update { it.copy(isSyncingForms = false, syncFormsMessage = message) }
         }
     }
 
@@ -152,24 +195,28 @@ class MainViewModel @Inject constructor(
 
     fun onSyncMaintenanceClicked() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isSyncingMaintenance = true, syncMaintenanceMessage = null) }
+            _uiState.update { it.copy(syncMaintenanceMessage = null) }
 
             val pendingMaintenance = _uiState.value.pendingMaintenanceForms
             if (pendingMaintenance.isEmpty()) {
-                _uiState.update { it.copy(isSyncingMaintenance = false, syncMaintenanceMessage = "No hay mantenimientos para sincronizar.") }
+                _uiState.update { it.copy(syncMaintenanceMessage = "No hay mantenimientos para sincronizar.") }
                 return@launch
             }
+            
+            Log.d("MainViewModel", "🔄 Starting maintenance sync with ${pendingMaintenance.size} pending forms")
 
-            var successCount = 0
-            var errorCount = 0
+            // Solicitamos sincronización de mantenimientos
+            val result = localSyncCoordinator.coordinateSync(
+                LocalSyncCoordinator.SyncTrigger.ManualSync(LocalSyncCoordinator.SyncType.MAINTENANCE_ONLY)
+            )
 
-            pendingMaintenance.forEach { form ->
-                val result = syncMaintenanceFormsUseCase(form)
-                if (result.isSuccess) successCount++ else errorCount++
+            if (result.isSuccess) {
+                _uiState.update { it.copy(syncMaintenanceMessage = "Sincronización de mantenimientos iniciada en segundo plano") }
+                Log.d("MainViewModel", "✅ Maintenance sync coordinated successfully")
+            } else {
+                _uiState.update { it.copy(syncMaintenanceMessage = "Error al iniciar sincronización") }
+                Log.e("MainViewModel", "❌ Failed to coordinate maintenance sync", result.exceptionOrNull())
             }
-
-            val message = "Sincronización de mantenimientos completa. Éxitos: $successCount, Fallos: $errorCount."
-            _uiState.update { it.copy(isSyncingMaintenance = false, syncMaintenanceMessage = message) }
         }
     }
 
@@ -179,10 +226,22 @@ class MainViewModel @Inject constructor(
 
     fun onSyncOilsClicked() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isSyncingOils = true, syncOilsMessage = null) }
-            val result = syncOilsUseCase()
-            val message = if (result.isSuccess) "Aceites sincronizados" else result.exceptionOrNull()?.message ?: "Error"
-            _uiState.update { it.copy(isSyncingOils = false, syncOilsMessage = message) }
+            _uiState.update { it.copy(syncOilsMessage = null) }
+            
+            Log.d("MainViewModel", "🔄 Starting oils sync")
+            
+            // Aceites son parte de Master Data (solo aceites)
+            val result = localSyncCoordinator.coordinateSync(
+                LocalSyncCoordinator.SyncTrigger.ManualSync(LocalSyncCoordinator.SyncType.OILS_ONLY)
+            )
+            
+            if (result.isSuccess) {
+                _uiState.update { it.copy(syncOilsMessage = "Sincronización de aceites iniciada en segundo plano") }
+                Log.d("MainViewModel", "✅ Oils sync coordinated successfully")
+            } else {
+                _uiState.update { it.copy(syncOilsMessage = "Error al iniciar sincronización") }
+                Log.e("MainViewModel", "❌ Failed to coordinate oils sync", result.exceptionOrNull())
+            }
         }
     }
 
